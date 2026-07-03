@@ -1,7 +1,5 @@
 /*
- * MD3 Layout System
- * Mobile: top bar + camera + bottom nav bar (no sidebar)
- * Desktop: nav rail + camera + detection log panel + optional face sidebar
+ * MD3 Layout System — all fixes applied
  */
 
 /* ============================================================
@@ -17,7 +15,7 @@
 }
 
 /* ============================================================
-   Top App Bar — Small (MD3 spec: 64dp desktop, 56dp mobile)
+   Top App Bar
    ============================================================ */
 
 .md3-top-app-bar {
@@ -30,13 +28,10 @@
   color: var(--md-sys-color-on-surface);
   z-index: 10;
   flex-shrink: 0;
-  transition: background var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard);
 }
 
 @media (min-width: 600px) {
-  .md3-top-app-bar {
-    height: 64px;
-  }
+  .md3-top-app-bar { height: 64px; }
 }
 
 .md3-top-app-bar__title {
@@ -53,8 +48,16 @@
   align-items: center;
 }
 
+/* Mobile-only button: visible on mobile, hidden on desktop */
+.md3-mobile-only {
+  display: inline-flex;
+}
+@media (min-width: 600px) {
+  .md3-mobile-only { display: none !important; }
+}
+
 /* ============================================================
-   Main Area — holds camera + detection log on desktop
+   Main Area
    ============================================================ */
 
 .md3-main-area {
@@ -65,7 +68,7 @@
 }
 
 /* ============================================================
-   Camera Container — a bounded div, NOT full viewport
+   Camera Wrapper + Camera Box — padded rounded container
    ============================================================ */
 
 .md3-camera-wrapper {
@@ -74,18 +77,32 @@
   flex-direction: column;
   min-width: 0;
   position: relative;
+  padding: 8px;
+}
+
+@media (min-width: 600px) {
+  .md3-camera-wrapper { padding: 12px; }
+}
+@media (min-width: 1200px) {
+  .md3-camera-wrapper { padding: 16px; }
+}
+
+.md3-camera-box {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  overflow: hidden;
+  background: #000;
 }
 
 .md3-camera-container {
   position: relative;
   flex: 1;
-  margin: 0;
-  background: #000;
-  border-radius: 0;
   overflow: hidden;
 }
 
-/* Camera should fill its container div, not the viewport */
 .md3-camera-container video {
   width: 100%;
   height: 100%;
@@ -93,7 +110,6 @@
   display: block;
 }
 
-/* Overlay canvases — same size as the camera container */
 .md3-camera-container .overlay {
   position: absolute;
   inset: 0;
@@ -102,7 +118,18 @@
   pointer-events: none;
 }
 
-/* Camera error state */
+/* Camera switch button — top-right inside camera box */
+.md3-camera-switch {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  --md-icon-button-icon-color: white;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: var(--md-sys-shape-corner-full);
+}
+
+/* Camera error */
 .md3-camera-error {
   position: absolute;
   inset: 0;
@@ -115,6 +142,7 @@
   color: var(--md-sys-color-on-surface);
   text-align: center;
   padding: 24px;
+  z-index: 4;
 }
 
 .md3-camera-error h2 {
@@ -129,35 +157,23 @@
   max-width: 320px;
 }
 
-/* Face chip area — overlaid on camera */
+/* Face chip & FAB — inside camera-box */
 .md3-face-chip-area {
   position: absolute;
-  bottom: 16px;
-  left: 16px;
+  bottom: 12px;
+  left: 12px;
   z-index: 5;
 }
 
-/* Add face FAB — overlaid on camera */
 .md3-fab-add-face {
   position: absolute;
-  bottom: 24px;
-  right: 24px;
+  bottom: 16px;
+  right: 16px;
   z-index: 5;
-}
-
-@media (max-width: 599px) {
-  .md3-fab-add-face {
-    bottom: 16px;
-    right: 16px;
-  }
-  .md3-face-chip-area {
-    bottom: 16px;
-    left: 16px;
-  }
 }
 
 /* ============================================================
-   Detection Log Panel — desktop only, right of camera
+   Detection Log Panel — desktop (>=1200px)
    ============================================================ */
 
 .md3-detection-log-panel {
@@ -171,13 +187,7 @@
 }
 
 @media (min-width: 1200px) {
-  .md3-detection-log-panel {
-    display: flex;
-  }
-}
-
-.md3-detection-log-panel.open {
-  display: flex;
+  .md3-detection-log-panel { display: flex; }
 }
 
 .md3-detection-log__header {
@@ -231,8 +241,8 @@
 }
 
 .md3-detection-log__item-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--md-sys-shape-corner-full);
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
@@ -242,14 +252,9 @@
   flex-shrink: 0;
 }
 
-.md3-detection-log__item-icon .material-symbols-outlined {
-  font-size: 20px;
-}
+.md3-detection-log__item-icon .material-symbols-outlined { font-size: 20px; }
 
-.md3-detection-log__item-info {
-  flex: 1;
-  min-width: 0;
-}
+.md3-detection-log__item-info { flex: 1; min-width: 0; }
 
 .md3-detection-log__item-label {
   font: 500 0.875rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
@@ -265,24 +270,15 @@
 }
 
 .md3-detection-log__item-confidence {
-  font: 500 0.75rem/1rem 'Roboto Flex', 'Roboto', sans-serif;
+  font: 500 0.875rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
   color: var(--md-sys-color-primary);
   flex-shrink: 0;
 }
 
-/* Detection log FAB — visible on desktop when panel is closed */
-.md3-fab-toggle-log {
-  display: none;
-}
-
-@media (min-width: 1200px) {
-  .md3-fab-toggle-log {
-    display: flex;
-  }
-}
-
 /* ============================================================
-   Face Library Sidebar — mobile: bottom sheet, desktop: panel
+   Face Library Sidebar
+   Desktop: side panel (right)
+   Mobile: horizontal bottom sheet
    ============================================================ */
 
 .md3-sidebar {
@@ -300,10 +296,9 @@
   box-shadow: var(--md-sys-elevation-3);
 }
 
-.md3-sidebar.open {
-  transform: translateX(0);
-}
+.md3-sidebar.open { transform: translateX(0); }
 
+/* Mobile: horizontal bottom sheet */
 @media (max-width: 599px) {
   .md3-sidebar {
     top: auto;
@@ -311,13 +306,33 @@
     right: 0;
     bottom: 0;
     width: 100%;
-    max-height: 70vh;
+    height: 220px;
+    max-height: 45vh;
+    flex-direction: column;
     border-radius: var(--md-sys-shape-corner-extra-large) var(--md-sys-shape-corner-extra-large) 0 0;
     transform: translateY(100%);
     box-shadow: 0 -2px 6px 2px rgba(0,0,0,.07);
   }
-  .md3-sidebar.open {
-    transform: translateY(0);
+  .md3-sidebar.open { transform: translateY(0); }
+
+  .md3-sidebar__list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  /* Override md-list to be horizontal on mobile */
+  md-list.md3-sidebar__list {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .md3-sidebar__list md-list-item {
+    min-width: 120px;
+    flex-shrink: 0;
   }
 }
 
@@ -354,6 +369,78 @@
 }
 
 /* ============================================================
+   Mobile Detection Log Sheet
+   ============================================================ */
+
+.md3-mobile-log-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 40vh;
+  background: var(--md-sys-color-surface-container-low);
+  z-index: 20;
+  transform: translateY(100%);
+  transition: transform var(--md-sys-motion-duration-medium4) var(--md-sys-motion-easing-emphasized-decelerate);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--md-sys-shape-corner-extra-large) var(--md-sys-shape-corner-extra-large) 0 0;
+  box-shadow: 0 -2px 6px 2px rgba(0,0,0,.07);
+}
+
+.md3-mobile-log-sheet.open { transform: translateY(0); }
+
+@media (min-width: 600px) {
+  .md3-mobile-log-sheet { display: none; }
+}
+
+.md3-mobile-log__handle {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--md-sys-color-outline-variant);
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+
+.md3-mobile-log__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px 8px;
+  flex-shrink: 0;
+}
+
+.md3-mobile-log__title {
+  font: 500 1rem/1.5rem 'Roboto Flex', 'Roboto', sans-serif;
+  margin: 0;
+  color: var(--md-sys-color-on-surface);
+}
+
+.md3-mobile-log__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 8px;
+}
+
+.md3-mobile-log__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--md-sys-color-on-surface-variant);
+  font: 400 0.875rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
+}
+
+.md3-mobile-log__empty .material-symbols-outlined {
+  font-size: 36px;
+  color: var(--md-sys-color-outline);
+}
+
+/* ============================================================
    Scrim
    ============================================================ */
 
@@ -373,7 +460,7 @@
 }
 
 /* ============================================================
-   Settings Sheet — side sheet (desktop), bottom sheet (mobile)
+   Settings Sheet — hidden by transform only (NOT display:none)
    ============================================================ */
 
 .md3-settings-sheet {
@@ -391,9 +478,7 @@
   box-shadow: var(--md-sys-elevation-3);
 }
 
-.md3-settings-sheet.open {
-  transform: translateX(0);
-}
+.md3-settings-sheet.open { transform: translateX(0); }
 
 @media (max-width: 599px) {
   .md3-settings-sheet {
@@ -407,9 +492,7 @@
     transform: translateY(100%);
     box-shadow: 0 -2px 6px 2px rgba(0,0,0,.07);
   }
-  .md3-settings-sheet.open {
-    transform: translateY(0);
-  }
+  .md3-settings-sheet.open { transform: translateY(0); }
 }
 
 .md3-settings-sheet__header {
@@ -452,9 +535,7 @@
   gap: 8px;
 }
 
-.md3-settings-row.column label {
-  margin-bottom: 0;
-}
+.md3-settings-row.column label { margin-bottom: 0; }
 
 /* ============================================================
    Bottom Navigation Bar — mobile only
@@ -470,13 +551,10 @@
   flex-shrink: 0;
   z-index: 10;
   padding: 0 8px;
-  gap: 0;
 }
 
 @media (min-width: 600px) {
-  .md3-bottom-nav {
-    display: none;
-  }
+  .md3-bottom-nav { display: none; }
 }
 
 .md3-bottom-nav__item {
@@ -498,9 +576,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.md3-bottom-nav__item.active {
-  color: var(--md-sys-color-on-surface);
-}
+.md3-bottom-nav__item.active { color: var(--md-sys-color-on-surface); }
 
 .md3-bottom-nav__icon-wrap {
   position: relative;
@@ -548,24 +624,24 @@
 
 /* ============================================================
    Navigation Rail — desktop/tablet only
+   Items centered, taller active highlights
    ============================================================ */
 
 .md3-nav-rail {
   display: none;
   flex-direction: column;
   align-items: center;
-  width: 80px;
+  justify-content: center;
+  width: 88px;
   background: var(--md-sys-color-surface);
   border-right: 1px solid var(--md-sys-color-outline-variant);
-  padding: 12px 0;
-  gap: 12px;
+  padding: 16px 0;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 @media (min-width: 600px) {
-  .md3-nav-rail {
-    display: flex;
-  }
+  .md3-nav-rail { display: flex; }
 }
 
 .md3-nav-rail__item {
@@ -581,7 +657,7 @@
   color: var(--md-sys-color-on-surface-variant);
   position: relative;
   width: 56px;
-  height: 56px;
+  min-height: 64px;
   border-radius: var(--md-sys-shape-corner-large);
   transition: color var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard);
 }
@@ -592,7 +668,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 32px;
-  height: 32px;
+  height: 40px;
   border-radius: var(--md-sys-shape-corner-full);
   background: var(--md-sys-color-secondary-container);
   opacity: 0;
@@ -605,7 +681,7 @@
 .md3-nav-rail__item.active .md3-nav-rail__indicator {
   opacity: 1;
   width: 56px;
-  height: 32px;
+  height: 48px;
 }
 
 .md3-nav-rail__item .material-symbols-outlined {
@@ -628,9 +704,7 @@
   z-index: 1;
 }
 
-.md3-nav-rail__item.active {
-  color: var(--md-sys-color-on-surface);
-}
+.md3-nav-rail__item.active { color: var(--md-sys-color-on-surface); }
 
 /* ============================================================
    Toast / Snackbar
@@ -638,7 +712,7 @@
 
 .md3-toast-container {
   position: fixed;
-  bottom: 96px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
@@ -657,12 +731,6 @@
   }
 }
 
-@media (min-width: 600px) {
-  .md3-toast-container {
-    bottom: 24px;
-  }
-}
-
 .md3-toast {
   background: var(--md-sys-color-inverse-surface);
   color: var(--md-sys-color-inverse-on-surface);
@@ -673,9 +741,6 @@
   pointer-events: auto;
   animation: toast-enter var(--md-sys-motion-duration-medium1) var(--md-sys-motion-easing-standard-decelerate);
   white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .md3-toast.toast-exit {
@@ -728,7 +793,6 @@
   color: var(--md-sys-color-primary);
 }
 
-/* Swiggly progress bar */
 .md3-loading-progress-wrap {
   width: 100%;
   display: flex;
@@ -754,7 +818,6 @@
   position: relative;
 }
 
-/* Swiggly/wave animation on the progress bar */
 .md3-loading-progress-fill::after {
   content: '';
   position: absolute;
@@ -784,7 +847,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Loading steps */
 .md3-loading-steps {
   display: flex;
   gap: 24px;
@@ -801,17 +863,9 @@
   transition: color var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard);
 }
 
-.md3-loading-step.active {
-  color: var(--md-sys-color-primary);
-}
-
-.md3-loading-step.done {
-  color: var(--md-sys-color-tertiary);
-}
-
-.md3-loading-step.error {
-  color: var(--md-sys-color-error);
-}
+.md3-loading-step.active { color: var(--md-sys-color-primary); }
+.md3-loading-step.done { color: var(--md-sys-color-tertiary); }
+.md3-loading-step.error { color: var(--md-sys-color-error); }
 
 .md3-loading-step-icon {
   width: 40px;
@@ -837,16 +891,4 @@
   background: var(--md-sys-color-error-container);
 }
 
-.md3-loading-step-icon .material-symbols-outlined {
-  font-size: 20px;
-}
-
-/* ============================================================
-   Mobile-only FAB positioning
-   ============================================================ */
-
-@media (max-width: 599px) {
-  .md3-toast-container {
-    bottom: 96px;
-  }
-}
+.md3-loading-step-icon .material-symbols-outlined { font-size: 20px; }
