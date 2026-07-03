@@ -77,6 +77,16 @@
   --md-sys-motion-duration-long3: 550ms;
   --md-sys-motion-duration-long4: 600ms;
 
+  /* M3 Expressive Spring Tokens (CSS cubic-bezier approximations) */
+  --spring-spatial-default: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-spatial-fast: cubic-bezier(0.22, 1.40, 0.36, 1);
+  --spring-spatial-slow: cubic-bezier(0.25, 1.70, 0.50, 1);
+  --spring-effects-default: cubic-bezier(0.20, 0.00, 0.00, 1.00);
+  --spring-effects-fast: cubic-bezier(0.10, 0.00, 0.00, 1.00);
+  --spring-duration-fast: 300ms;
+  --spring-duration-default: 400ms;
+  --spring-duration-slow: 500ms;
+
   /* Typography — MD3 typescale roles */
   --md-sys-typescale-display-large-font: 'Roboto Flex', 'Roboto', sans-serif;
   --md-sys-typescale-display-large-weight: 400;

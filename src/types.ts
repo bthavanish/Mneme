@@ -14,6 +14,7 @@ export interface Detection {
 
 export interface FaceDetectionBox {
   detection: { box: { x: number; y: number; width: number; height: number } };
+  descriptor: Float32Array;
 }
 
 export interface FaceDetectionResult {

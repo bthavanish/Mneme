@@ -6,9 +6,6 @@ let faceapi: any = null;
 let faceMatcher: any = null;
 let busy = false;
 
-const FPS = isMobile ? 3 : 5;
-const INTERVAL = 1000 / FPS;
-
 export function getFaceApi(): any {
   if (!faceapi) faceapi = (window as any).faceapi;
   return faceapi;
@@ -16,7 +13,6 @@ export function getFaceApi(): any {
 
 export async function loadFaceModels(modelUrl: string): Promise<void> {
   const api = getFaceApi();
-  // load detector first (needed for detection), then landmarks + recognition in parallel
   await api.nets.tinyFaceDetector.loadFromUri(modelUrl);
   await Promise.all([
     api.nets.faceLandmark68TinyNet.loadFromUri(modelUrl),
@@ -24,7 +20,7 @@ export async function loadFaceModels(modelUrl: string): Promise<void> {
   ]);
 }
 
-export async function rebuildMatcher(): Promise<void> {
+export async function rebuildMatcher(threshold?: number): Promise<void> {
   const api = getFaceApi();
   const stored = await loadFaces();
   if (stored.length === 0) {
@@ -37,8 +33,8 @@ export async function rebuildMatcher(): Promise<void> {
     return new api.LabeledFaceDescriptors(face.name, [descriptor]);
   });
 
-  const threshold = parseFloat(localStorage.getItem('face_threshold') || '0.5');
-  faceMatcher = new api.FaceMatcher(labeledDescriptors, threshold);
+  const t = threshold ?? parseFloat(localStorage.getItem('face_threshold') || '0.5');
+  faceMatcher = new api.FaceMatcher(labeledDescriptors, t);
 }
 
 export async function detectFaces(
@@ -52,7 +48,7 @@ export async function detectFaces(
 
   try {
     const options = new api.TinyFaceDetectorOptions({
-      inputSize: isMobile ? 160 : 224,
+      inputSize: isMobile ? 128 : 224,
       scoreThreshold: 0.4,
     });
 
@@ -60,6 +56,10 @@ export async function detectFaces(
       .detectAllFaces(videoEl, options)
       .withFaceLandmarks()
       .withFaceDescriptors();
+
+    if (!results || results.length === 0) {
+      return { detections: [], names: [] };
+    }
 
     const names = results.map((r: any) => {
       if (!faceMatcher) return 'Unknown';
@@ -75,8 +75,4 @@ export async function detectFaces(
 
 export function getMatcher(): any {
   return faceMatcher;
-}
-
-export function getFaceInterval(): number {
-  return INTERVAL;
 }

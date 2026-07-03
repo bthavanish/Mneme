@@ -31,8 +31,6 @@ export function initSidebar(): void {
   const scrim = document.getElementById('scrim');
   scrim?.addEventListener('click', () => {
     closeSidebar();
-    document.getElementById('settings-sheet')?.classList.remove('open');
-    scrim.classList.remove('visible');
   });
 }
 

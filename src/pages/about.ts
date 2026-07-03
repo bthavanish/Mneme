@@ -17,9 +17,19 @@ async function fetchManifest(): Promise<TeamMember[]> {
   }
 }
 
+export function prefetchManifest(): void {
+  fetchManifest().catch(() => {});
+}
+
 export async function renderAboutPage(): Promise<void> {
   const container = document.getElementById('about-page');
   if (!container) return;
+
+  // Re-render guard: only render once
+  const contentContainer = document.getElementById('about-page-content');
+  if (!contentContainer) return;
+  if (contentContainer.dataset.rendered === 'true') return;
+  contentContainer.dataset.rendered = 'true';
 
   const team = await fetchManifest();
   const seed = Date.now() % 1000;
@@ -32,7 +42,7 @@ export async function renderAboutPage(): Promise<void> {
     teamHTML += `
       <div class="about-team-card" style="--shape: ${shape}; --card-gradient: ${gradient};">
         <div class="about-team-img-wrap">
-          <img src="${PIC_BASE}${member.file}" alt="${member.name}" loading="lazy" class="about-team-img">
+          <img src="${PIC_BASE}${member.file}" alt="${member.name}" loading="eager" class="about-team-img">
         </div>
         <span class="about-team-name">${member.name}</span>
         ${member.role ? `<span class="about-team-role">${member.role}</span>` : ''}
@@ -40,7 +50,7 @@ export async function renderAboutPage(): Promise<void> {
     `;
   });
 
-  container.innerHTML = `
+  contentContainer.innerHTML = `
     <div class="about-content">
       <div class="about-hero">
         <div class="about-hero-bg">

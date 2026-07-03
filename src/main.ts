@@ -21,8 +21,8 @@ import '@material/web/chips/assist-chip.js';
 import '@material/web/progress/circular-progress.js';
 
 import { startCamera, stopCamera } from './lib/camera';
-import { loadDetector, detectObjects, getObjectDetectionInterval } from './lib/detector';
-import { loadFaceModels, detectFaces, rebuildMatcher, getFaceInterval, getFaceApi } from './lib/faceEngine';
+import { loadDetector, detectObjects } from './lib/detector';
+import { loadFaceModels, detectFaces, rebuildMatcher, getFaceApi } from './lib/faceEngine';
 import { saveFace, clearAllFaces, isStorageAvailable } from './lib/faceStore';
 import { hasConsent, setConsent } from './lib/consent';
 import { setupCanvases, drawObjectBoxes, drawFaceBoxes, clearCanvas } from './ui/canvas';
@@ -31,9 +31,10 @@ import { showToast } from './ui/toast';
 import { initModeToggle, getCurrentMode } from './ui/modeToggle';
 import { initDetectionLog, logObjectDetections, logFaceDetections } from './ui/detectionLog';
 import { initTheme, setTheme, toggleTheme, getStoredTheme, isDark } from './lib/theme';
-import { renderAboutPage } from './pages/about';
+import { renderAboutPage, prefetchManifest } from './pages/about';
 
 import type { SavedFace, AppMode, Settings } from './types';
+import { isMobile } from './lib/device';
 
 let settings: Settings = loadSettings();
 let objectBusy = false;
@@ -42,6 +43,14 @@ let faceModelsLoaded = false;
 let objectModelLoaded = false;
 let currentFacingMode: 'user' | 'environment' = 'user';
 let lastFaceDetection: { descriptor: Float32Array; thumbnail: string } | null = null;
+
+// Pre-allocated canvas elements for thumbnail capture (avoid GC pressure)
+const thumbCanvas = document.createElement('canvas');
+thumbCanvas.width = 80;
+thumbCanvas.height = 80;
+const thumbCtx = thumbCanvas.getContext('2d')!;
+const offscreenCanvas = document.createElement('canvas');
+const offscreenCtx = offscreenCanvas.getContext('2d')!;
 
 
 function loadSettings(): Settings {
@@ -212,6 +221,8 @@ async function init() {
 
     initUI();
     startDetectionLoops();
+    // Prefetch about page manifest (non-blocking)
+    prefetchManifest();
   } catch (err: any) {
     app.style.display = '';
     loadingScreen.classList.add('fade-out');
@@ -230,6 +241,9 @@ function initUI() {
   initModeToggle((mode: AppMode) => {
     updateModeUI(mode);
     lazyLoadForMode(mode);
+    // Immediately clear stale canvas from previous mode
+    if (mode === 'faces') clearCanvas('overlay-objects');
+    if (mode === 'objects') clearCanvas('overlay-faces');
   });
 
   updateModeUI(getCurrentMode());
@@ -328,6 +342,7 @@ function initUI() {
     settings.faceThreshold = parseFloat(faceSlider.value);
     faceVal.textContent = String(faceSlider.value);
     saveSettings();
+    rebuildMatcher(settings.faceThreshold);
   });
 
   // === Delete all faces ===
@@ -403,16 +418,26 @@ function initUI() {
   // === About page ===
   const aboutPage = document.getElementById('about-page')!;
   const btnAbout = document.getElementById('btn-about')!;
-  const btnCloseAbout = document.getElementById('btn-close-about')!;
+  const btnCloseAbout = document.getElementById('btn-close-about');
 
   btnAbout.addEventListener('click', () => {
     renderAboutPage();
-    aboutPage.classList.add('open');
+    aboutPage.getBoundingClientRect(); // force reflow before animation
+    requestAnimationFrame(() => aboutPage.classList.add('open'));
+    // Force animation replay on cards
+    aboutPage.querySelectorAll('.about-how-card').forEach(el => {
+      (el as HTMLElement).style.animationName = 'none';
+      requestAnimationFrame(() => {
+        (el as HTMLElement).style.animationName = '';
+      });
+    });
   });
 
-  btnCloseAbout.addEventListener('click', () => {
-    aboutPage.classList.remove('open');
-  });
+  if (btnCloseAbout) {
+    btnCloseAbout.addEventListener('click', () => {
+      aboutPage.classList.remove('open');
+    });
+  }
 }
 
 async function lazyLoadForMode(mode: AppMode): Promise<void> {
@@ -534,7 +559,22 @@ async function handleAddFace() {
 function startDetectionLoops() {
   const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
 
-  function objectLoop() {
+  let paused = false;
+  document.addEventListener('visibilitychange', () => {
+    paused = document.hidden;
+  });
+
+  // Frame skip counters
+  let objectFrameSkip = 0;
+  let faceFrameSkip = 0;
+  let OBJECT_SKIP = isMobile ? 8 : 5;
+  let FACE_SKIP = isMobile ? 20 : 12;
+
+  // Adaptive FPS governor
+  const frameDurations: number[] = [];
+  let lastFrameTime = performance.now();
+
+  function runObjectDetect() {
     const mode = getCurrentMode();
     if ((mode === 'objects' || mode === 'both') && objectModelLoaded && !objectBusy) {
       objectBusy = true;
@@ -545,10 +585,9 @@ function startDetectionLoops() {
       });
     }
     if (mode === 'faces') clearCanvas('overlay-objects');
-    setTimeout(objectLoop, getObjectDetectionInterval());
   }
 
-  function faceLoop() {
+  function runFaceDetect() {
     const mode = getCurrentMode();
     const api = getFaceApi();
     if ((mode === 'faces' || mode === 'both') && hasConsent() && faceModelsLoaded && !faceBusy && api?.nets?.tinyFaceDetector?.isLoaded) {
@@ -556,25 +595,20 @@ function startDetectionLoops() {
       detectFaces(videoEl).then(({ detections, names }) => {
         drawFaceBoxes('overlay-faces', detections, names);
         logFaceDetections(names);
-        // Cache the most recent face detection for add-face
-        if (detections.length > 0) {
+        if (detections.length > 0 && videoEl.videoWidth > 0) {
           try {
-            const offscreen = document.createElement('canvas');
-            offscreen.width = videoEl.videoWidth || 1280;
-            offscreen.height = videoEl.videoHeight || 720;
-            const offCtx = offscreen.getContext('2d')!;
-            offCtx.drawImage(videoEl, 0, 0);
+            if (offscreenCanvas.width !== videoEl.videoWidth || offscreenCanvas.height !== videoEl.videoHeight) {
+              offscreenCanvas.width = videoEl.videoWidth;
+              offscreenCanvas.height = videoEl.videoHeight;
+            }
+            offscreenCtx.drawImage(videoEl, 0, 0);
             const box = (detections[0] as any).detection.box;
             const pad = 20;
             const cropX = Math.max(0, box.x - pad);
             const cropY = Math.max(0, box.y - pad);
-            const cropW = Math.min(offscreen.width - cropX, box.width + pad * 2);
-            const cropH = Math.min(offscreen.height - cropY, box.height + pad * 2);
-            const thumbCanvas = document.createElement('canvas');
-            thumbCanvas.width = 80;
-            thumbCanvas.height = 80;
-            const thumbCtx = thumbCanvas.getContext('2d')!;
-            thumbCtx.drawImage(offscreen, cropX, cropY, cropW, cropH, 0, 0, 80, 80);
+            const cropW = Math.min(offscreenCanvas.width - cropX, box.width + pad * 2);
+            const cropH = Math.min(offscreenCanvas.height - cropY, box.height + pad * 2);
+            thumbCtx.drawImage(offscreenCanvas, cropX, cropY, cropW, cropH, 0, 0, 80, 80);
             lastFaceDetection = {
               descriptor: (detections[0] as any).descriptor,
               thumbnail: thumbCanvas.toDataURL('image/jpeg', 0.7),
@@ -588,11 +622,39 @@ function startDetectionLoops() {
       });
     }
     if (mode === 'objects') clearCanvas('overlay-faces');
-    setTimeout(faceLoop, getFaceInterval());
   }
 
-  objectLoop();
-  faceLoop();
+  function rafLoop() {
+    if (paused) {
+      requestAnimationFrame(rafLoop);
+      return;
+    }
+
+    // Adaptive FPS governor
+    const now = performance.now();
+    const dt = now - lastFrameTime;
+    lastFrameTime = now;
+    frameDurations.push(dt);
+    if (frameDurations.length > 10) frameDurations.shift();
+    if (frameDurations.length >= 10) {
+      const avg = frameDurations.reduce((a, b) => a + b, 0) / frameDurations.length;
+      if (avg > 150) {
+        OBJECT_SKIP = Math.min(OBJECT_SKIP + 1, isMobile ? 16 : 10);
+        FACE_SKIP = Math.min(FACE_SKIP + 1, isMobile ? 40 : 24);
+      } else if (avg < 80) {
+        OBJECT_SKIP = Math.max(OBJECT_SKIP - 1, isMobile ? 4 : 3);
+        FACE_SKIP = Math.max(FACE_SKIP - 1, isMobile ? 10 : 8);
+      }
+    }
+
+    objectFrameSkip++;
+    faceFrameSkip++;
+    if (objectFrameSkip >= OBJECT_SKIP) { objectFrameSkip = 0; runObjectDetect(); }
+    if (faceFrameSkip >= FACE_SKIP) { faceFrameSkip = 0; runFaceDetect(); }
+    requestAnimationFrame(rafLoop);
+  }
+
+  requestAnimationFrame(rafLoop);
 }
 
 init();

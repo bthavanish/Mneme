@@ -38,10 +38,23 @@ export function initModeToggle(callback: (mode: AppMode) => void): void {
 }
 
 function setActiveButtons(mode: AppMode): void {
-  // Update all nav elements that have data-mode
   document.querySelectorAll('[data-mode]').forEach((b) => {
     const el = b as HTMLElement;
+    const wasActive = el.classList.contains('active');
     el.classList.toggle('active', el.dataset.mode === mode);
+
+    // Spring-bounce the icon on newly active item
+    if (el.dataset.mode === mode && !wasActive) {
+      const icon = el.querySelector('.material-symbols-outlined') as HTMLElement;
+      if (icon) {
+        icon.style.transition = 'none';
+        icon.style.transform = 'scale(0.7) rotate(-10deg)';
+        requestAnimationFrame(() => {
+          icon.style.transition = 'transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1)';
+          icon.style.transform = '';
+        });
+      }
+    }
   });
 }
 

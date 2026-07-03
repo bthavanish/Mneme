@@ -4,9 +4,6 @@ import { isMobile } from './device';
 let model: any = null;
 let busy = false;
 
-const FPS = isMobile ? 8 : 12;
-const INTERVAL = 1000 / FPS;
-
 export async function loadDetector(): Promise<void> {
   const cocoSsd = (window as any).cocoSsd;
   const base = isMobile ? 'lite_mobilenet_v2' : 'mobilenet_v2';
@@ -21,7 +18,6 @@ export async function detectObjects(
   busy = true;
 
   try {
-    // model.detect() is async - do NOT wrap in tf.tidy()
     const predictions = await model.detect(videoEl);
     return predictions
       .filter((p: any) => p.score >= threshold)
@@ -33,8 +29,4 @@ export async function detectObjects(
   } finally {
     busy = false;
   }
-}
-
-export function getObjectDetectionInterval(): number {
-  return INTERVAL;
 }

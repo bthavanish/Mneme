@@ -1,75 +1,84 @@
 /*
  * MD3 Motion & Animations
  * Proper transition effects using MD3 easing curves and durations.
+ * M3 Expressive spring animations included.
  */
 
 /* ============================================================
-   Toast / Snackbar
+   Toast / Snackbar — Spring Bounce
    ============================================================ */
 
-@keyframes toast-enter {
-  from {
-    transform: translateY(16px) scale(0.92);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
+@keyframes toast-spring-enter {
+  0%   { transform: translateY(24px) scale(0.88); opacity: 0; }
+  55%  { transform: translateY(-4px) scale(1.02); opacity: 1; }
+  75%  { transform: translateY(2px) scale(0.99); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
-@keyframes toast-exit {
-  from {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(16px) scale(0.92);
-    opacity: 0;
-  }
+@keyframes toast-spring-exit {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  30%  { transform: translateY(-4px) scale(1.01); opacity: 0.8; }
+  100% { transform: translateY(20px) scale(0.9); opacity: 0; }
 }
 
 /* ============================================================
-   Loading
+   Loading — M3 Expressive Morph
    ============================================================ */
 
-@keyframes pulse-scale {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-}
-
-@keyframes swiggly-bounce {
-  0%, 100% {
-    transform: translateY(0);
-    border-radius: 50%;
-  }
-  25% {
-    transform: translateY(-3px) scaleX(1.2) scaleY(0.8);
-    border-radius: 50% 50% 40% 60%;
-  }
-  50% {
-    transform: translateY(1px) scaleX(0.9) scaleY(1.1);
-    border-radius: 40% 60% 50% 50%;
-  }
-  75% {
-    transform: translateY(-2px) scaleX(1.1) scaleY(0.9);
-    border-radius: 60% 40% 50% 50%;
-  }
+@keyframes m3-morph-loader {
+  0%   { border-radius: 50%; transform: scale(1) rotate(0deg); }
+  20%  { border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%; transform: scale(1.05) rotate(45deg); }
+  40%  { border-radius: 60% 40% 40% 60% / 60% 60% 40% 40%; transform: scale(0.95) rotate(90deg); }
+  60%  { border-radius: 50% 50% 30% 70% / 30% 70% 50% 50%; transform: scale(1.08) rotate(135deg); }
+  80%  { border-radius: 30% 70% 70% 30% / 50% 50% 50% 50%; transform: scale(0.97) rotate(180deg); }
+  100% { border-radius: 50%; transform: scale(1) rotate(360deg); }
 }
 
 /* ============================================================
-   FAB
+   FAB — Spring Entrance
    ============================================================ */
 
-@keyframes fab-enter {
-  from {
-    transform: scale(0) rotate(-45deg);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1) rotate(0deg);
-    opacity: 1;
-  }
+@keyframes fab-spring-enter {
+  0%   { transform: scale(0) rotate(-30deg); opacity: 0; }
+  60%  { transform: scale(1.12) rotate(4deg); opacity: 1; }
+  80%  { transform: scale(0.96) rotate(-1deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* ============================================================
+   About Page — Hero Shapes Float
+   ============================================================ */
+
+@keyframes hero-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33%       { transform: translate(12px, -18px) scale(1.05) rotate(8deg); }
+  66%       { transform: translate(-8px, 8px) scale(0.97) rotate(-4deg); }
+}
+@keyframes hero-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  40%       { transform: translate(-15px, 12px) scale(1.08) rotate(-6deg); }
+  70%       { transform: translate(6px, -10px) scale(0.94) rotate(3deg); }
+}
+@keyframes hero-float-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(10px, 14px) scale(1.06) rotate(5deg); }
+}
+
+/* About Page — Hero Icon + Text Entrance */
+@keyframes hero-icon-enter {
+  from { transform: scale(0.3) rotate(-20deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes hero-text-enter {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* About Page — Card Stagger */
+@keyframes card-spring-in {
+  from { transform: translateY(24px) scale(0.95); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 /* ============================================================
@@ -161,4 +170,24 @@
 .md3-bottom-nav__item:active {
   transform: scale(0.92);
   transition: transform var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+/* ============================================================
+   Reduced Motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .about-hero-shape--1,
+  .about-hero-shape--2,
+  .about-hero-shape--3 { animation: none !important; }
+  .about-hero-icon,
+  .about-title,
+  .about-subtitle { animation: none !important; opacity: 1; transform: none; }
+  .about-how-card { animation: none !important; opacity: 1; transform: none; }
+  .md3-loading-logo { animation: pulse-scale 1800ms var(--md-sys-motion-easing-standard) infinite !important; }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

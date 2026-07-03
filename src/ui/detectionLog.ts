@@ -210,9 +210,53 @@ function renderList(listElement: HTMLElement | null, emptyElement: HTMLElement |
   emptyElement.style.display = 'none';
   listElement.style.display = '';
 
-  listElement.innerHTML = '';
+  // Virtual DOM diffing — only add/update/remove changed entries
+  const existingIds = new Set<string>();
+  const existingEls = new Map<string, HTMLElement>();
+
+  for (const child of Array.from(listElement.children)) {
+    const el = child as HTMLElement;
+    const id = el.dataset.entryId;
+    if (id) {
+      existingIds.add(id);
+      existingEls.set(id, el);
+    }
+  }
+
+  const newIds = new Set(entries.map(e => e.id));
+
+  // Remove entries no longer present
+  for (const id of existingIds) {
+    if (!newIds.has(id)) {
+      existingEls.get(id)?.remove();
+    }
+  }
+
+  // Add/update entries in order
   for (const entry of entries) {
-    listElement.appendChild(createLogItem(entry));
+    if (existingIds.has(entry.id)) {
+      // Update existing: update confidence text
+      const el = existingEls.get(entry.id);
+      if (el) {
+        const confEl = el.querySelector('.md3-detection-log__item-confidence');
+        if (confEl) confEl.textContent = `${Math.round(entry.confidence * 100)}%`;
+      }
+    } else {
+      // Add new entry at correct position
+      const newEl = createLogItem(entry);
+      if (entries.indexOf(entry) === 0) {
+        listElement.prepend(newEl);
+      } else {
+        // Find previous sibling
+        const prevEntry = entries[entries.indexOf(entry) - 1];
+        const prevEl = existingEls.get(prevEntry?.id) || listElement.lastElementChild;
+        if (prevEl) {
+          prevEl.after(newEl);
+        } else {
+          listElement.appendChild(newEl);
+        }
+      }
+    }
   }
 }
 

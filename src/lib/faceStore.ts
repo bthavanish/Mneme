@@ -18,7 +18,7 @@ function openDB(): Promise<IDBDatabase> {
           }
         };
         req.onsuccess = () => resolve(req.result);
-        req.onerror = () => { dbPromise = null; reject(req.error); };
+        req.onerror = () => { dbPromise = null; console.warn('[mneme] IndexedDB error:', req.error); reject(req.error); };
       } catch {
         dbPromise = null;
         reject(new Error('IndexedDB unavailable'));
