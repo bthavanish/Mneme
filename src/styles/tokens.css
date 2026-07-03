@@ -1,0 +1,105 @@
+:root {
+  --md-sys-color-primary: #4A55A2;
+  --md-sys-color-on-primary: #FFFFFF;
+  --md-sys-color-primary-container: #DEE0FF;
+  --md-sys-color-on-primary-container: #00006E;
+  --md-sys-color-secondary: #5C5D72;
+  --md-sys-color-on-secondary: #FFFFFF;
+  --md-sys-color-secondary-container: #E1E0F9;
+  --md-sys-color-on-secondary-container: #191A2C;
+  --md-sys-color-tertiary: #78536A;
+  --md-sys-color-on-tertiary: #FFFFFF;
+  --md-sys-color-tertiary-container: #FFD8EF;
+  --md-sys-color-on-tertiary-container: #2E1125;
+  --md-sys-color-error: #BA1A1A;
+  --md-sys-color-on-error: #FFFFFF;
+  --md-sys-color-error-container: #FFDAD6;
+  --md-sys-color-on-error-container: #410002;
+  --md-sys-color-surface: #FFFBFF;
+  --md-sys-color-on-surface: #1B1B1F;
+  --md-sys-color-surface-variant: #E3E1EC;
+  --md-sys-color-on-surface-variant: #46464F;
+  --md-sys-color-surface-container-lowest: #FFFFFF;
+  --md-sys-color-surface-container-low: #F5F3FA;
+  --md-sys-color-surface-container: #EFEDF4;
+  --md-sys-color-surface-container-high: #E9E7EF;
+  --md-sys-color-surface-container-highest: #E4E1EC;
+  --md-sys-color-outline: #777680;
+  --md-sys-color-outline-variant: #C7C5D0;
+  --md-sys-color-inverse-surface: #313034;
+  --md-sys-color-inverse-on-surface: #F3EFF4;
+  --md-sys-color-inverse-primary: #BAC3FF;
+
+  --md-sys-shape-corner-none: 0px;
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-full: 9999px;
+
+  --md-sys-elevation-1: 0 1px 2px rgba(0,0,0,.10), 0 1px 3px 1px rgba(0,0,0,.07);
+  --md-sys-elevation-2: 0 1px 2px rgba(0,0,0,.10), 0 2px 6px 2px rgba(0,0,0,.07);
+  --md-sys-elevation-3: 0 1px 3px rgba(0,0,0,.10), 0 4px 8px 3px rgba(0,0,0,.07);
+
+  --motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-easing-standard-decelerate: cubic-bezier(0, 0, 0, 1);
+  --motion-easing-standard-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  --motion-duration-short1: 50ms;
+  --motion-duration-short2: 100ms;
+  --motion-duration-short3: 150ms;
+  --motion-duration-short4: 200ms;
+  --motion-duration-medium1: 250ms;
+  --motion-duration-medium2: 300ms;
+  --motion-duration-medium3: 350ms;
+  --motion-duration-medium4: 400ms;
+  --motion-duration-long1: 450ms;
+  --motion-duration-long2: 500ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --md-sys-color-primary: #BAC3FF;
+    --md-sys-color-on-primary: #1E2578;
+    --md-sys-color-primary-container: #353C90;
+    --md-sys-color-on-primary-container: #DEE0FF;
+    --md-sys-color-secondary: #C4C4DD;
+    --md-sys-color-on-secondary: #2D2F42;
+    --md-sys-color-secondary-container: #444559;
+    --md-sys-color-on-secondary-container: #E1E0F9;
+    --md-sys-color-tertiary: #EAADCF;
+    --md-sys-color-on-tertiary: #47263B;
+    --md-sys-color-tertiary-container: #603C52;
+    --md-sys-color-on-tertiary-container: #FFD8EF;
+    --md-sys-color-surface: #121215;
+    --md-sys-color-on-surface: #E4E1EC;
+    --md-sys-color-surface-variant: #46464F;
+    --md-sys-color-on-surface-variant: #C7C5D0;
+    --md-sys-color-surface-container-lowest: #0C0C0F;
+    --md-sys-color-surface-container-low: #1B1B1F;
+    --md-sys-color-surface-container: #1F1F23;
+    --md-sys-color-surface-container-high: #292830;
+    --md-sys-color-surface-container-highest: #343338;
+    --md-sys-color-outline: #918F9A;
+    --md-sys-color-outline-variant: #46464F;
+    --md-sys-color-inverse-surface: #E4E1EC;
+    --md-sys-color-inverse-on-surface: #313034;
+    --md-sys-color-inverse-primary: #4A55A2;
+  }
+}
+
+body {
+  font-family: 'Roboto Flex', 'Roboto', sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
