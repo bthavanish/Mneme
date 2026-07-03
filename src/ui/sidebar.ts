@@ -77,7 +77,7 @@ export async function renderFaceList(): Promise<void> {
   }
 
   sidebarEmpty.style.display = 'none';
-  faceList.style.display = 'block';
+  faceList.style.display = '';
 
   for (const face of faces) {
     const item = document.createElement('md-list-item');
