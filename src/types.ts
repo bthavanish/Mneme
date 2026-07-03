@@ -12,9 +12,13 @@ export interface Detection {
   score: number;
 }
 
+export interface FaceDetectionBox {
+  detection: { box: { x: number; y: number; width: number; height: number } };
+}
+
 export interface FaceDetectionResult {
-  detections: any[];
-  matchedNames: string[];
+  detections: FaceDetectionBox[];
+  names: string[];
 }
 
 export type AppMode = 'objects' | 'faces' | 'both';
