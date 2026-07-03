@@ -1,3 +1,6 @@
+/**
+ * Mode toggle — syncs both nav rail (desktop) and bottom nav (mobile).
+ */
 import type { AppMode } from '../types';
 
 const STORAGE_KEY = 'mneme_mode';
@@ -13,12 +16,14 @@ let onModeChange: ((mode: AppMode) => void) | null = null;
 
 export function initModeToggle(callback: (mode: AppMode) => void): void {
   onModeChange = callback;
-  const buttons = document.querySelectorAll('.nav-rail-item');
 
-  buttons.forEach((btn) => {
+  // Handle both nav rail (desktop) and bottom nav (mobile)
+  const allButtons = document.querySelectorAll('[data-mode]');
+
+  allButtons.forEach((btn) => {
     const modeBtn = btn as HTMLElement;
     if (modeBtn.dataset.mode === currentMode) {
-      setActiveButton(modeBtn);
+      setActiveButtons(modeBtn.dataset.mode as AppMode);
     }
 
     btn.addEventListener('click', () => {
@@ -26,17 +31,18 @@ export function initModeToggle(callback: (mode: AppMode) => void): void {
       if (newMode === currentMode) return;
       currentMode = newMode;
       localStorage.setItem(STORAGE_KEY, currentMode);
-      setActiveButton(modeBtn);
+      setActiveButtons(currentMode);
       onModeChange?.(currentMode);
     });
   });
 }
 
-function setActiveButton(activeBtn: HTMLElement): void {
-  document.querySelectorAll('.nav-rail-item').forEach((b) => {
-    b.classList.remove('active');
+function setActiveButtons(mode: AppMode): void {
+  // Update all nav elements that have data-mode
+  document.querySelectorAll('[data-mode]').forEach((b) => {
+    const el = b as HTMLElement;
+    el.classList.toggle('active', el.dataset.mode === mode);
   });
-  activeBtn.classList.add('active');
 }
 
 export function getCurrentMode(): AppMode {

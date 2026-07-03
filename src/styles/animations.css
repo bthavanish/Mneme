@@ -1,6 +1,15 @@
+/*
+ * MD3 Motion & Animations
+ * Proper transition effects using MD3 easing curves and durations.
+ */
+
+/* ============================================================
+   Toast / Snackbar
+   ============================================================ */
+
 @keyframes toast-enter {
   from {
-    transform: translateY(8px) scale(0.95);
+    transform: translateY(16px) scale(0.92);
     opacity: 0;
   }
   to {
@@ -15,39 +24,109 @@
     opacity: 1;
   }
   to {
-    transform: translateY(8px) scale(0.95);
+    transform: translateY(16px) scale(0.92);
     opacity: 0;
   }
 }
 
-@keyframes shimmer {
-  from { background-position: -200% 0; }
-  to { background-position: 200% 0; }
-}
+/* ============================================================
+   Loading
+   ============================================================ */
 
 @keyframes pulse-scale {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
 }
 
-@keyframes fab-enter {
-  from { transform: scale(0.7); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
+@keyframes swiggly-bounce {
+  0%, 100% {
+    transform: translateY(0);
+    border-radius: 50%;
+  }
+  25% {
+    transform: translateY(-3px) scaleX(1.2) scaleY(0.8);
+    border-radius: 50% 50% 40% 60%;
+  }
+  50% {
+    transform: translateY(1px) scaleX(0.9) scaleY(1.1);
+    border-radius: 40% 60% 50% 50%;
+  }
+  75% {
+    transform: translateY(-2px) scaleX(1.1) scaleY(0.9);
+    border-radius: 60% 40% 50% 50%;
+  }
 }
 
-@keyframes indicator-expand {
-  from { width: 32px; opacity: 0; }
-  to { width: 56px; opacity: 1; }
+/* ============================================================
+   FAB
+   ============================================================ */
+
+@keyframes fab-enter {
+  from {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
 }
+
+/* ============================================================
+   Panel slide transitions
+   ============================================================ */
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes slide-in-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slide-out-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+/* ============================================================
+   Scrim
+   ============================================================ */
 
 @keyframes scrim-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
+/* ============================================================
+   Detection box appearance
+   ============================================================ */
+
 @keyframes box-appear {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ============================================================
+   Shimmer / skeleton loading
+   ============================================================ */
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
 }
 
 .skeleton {
@@ -60,4 +139,26 @@
   background-size: 200% 100%;
   animation: shimmer 1500ms linear infinite;
   border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+/* ============================================================
+   Utility transition classes
+   ============================================================ */
+
+.md3-fade-in {
+  animation: scrim-in var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard-decelerate);
+}
+
+.md3-fade-out {
+  animation: scrim-in var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard-accelerate) reverse forwards;
+}
+
+/* ============================================================
+   Ripple-like press feedback for nav items
+   ============================================================ */
+
+.md3-nav-rail__item:active,
+.md3-bottom-nav__item:active {
+  transform: scale(0.92);
+  transition: transform var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
 }

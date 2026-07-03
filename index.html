@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Mneme</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -13,30 +13,51 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest/dist/coco-ssd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@material/web@2/all.min.js"></script>
 </head>
 <body>
   <!-- Loading Screen -->
-  <div id="loading-screen" class="loading-screen">
-    <div class="loading-content">
-      <span class="material-symbols-outlined loading-icon" style="font-size: 56px; color: var(--md-sys-color-primary);">visibility</span>
-      <h1 class="loading-title">Mneme</h1>
-      <md-circular-progress indeterminate></md-circular-progress>
-      <div id="loading-steps" class="loading-steps">
-        <div class="loading-step" data-step="camera">
-          <md-icon class="loading-step-icon">videocam</md-icon>
+  <div id="loading-screen" class="md3-loading-screen">
+    <div class="md3-loading-content">
+      <div class="md3-loading-brand">
+        <span class="material-symbols-outlined md3-loading-logo" style="font-size: 56px; color: var(--md-sys-color-primary);">visibility</span>
+        <h1 class="md3-loading-title">Mneme</h1>
+      </div>
+
+      <!-- Swiggly progress bar -->
+      <div class="md3-loading-progress-wrap">
+        <div class="md3-loading-progress-bar">
+          <div id="loading-progress-fill" class="md3-loading-progress-fill"></div>
+        </div>
+        <div class="md3-loading-progress-info">
+          <span id="loading-progress-label" class="md3-loading-progress-label">Initializing...</span>
+          <span id="loading-progress-pct" class="md3-loading-progress-pct">0%</span>
+        </div>
+      </div>
+
+      <!-- Loading steps -->
+      <div id="loading-steps" class="md3-loading-steps">
+        <div class="md3-loading-step" data-step="camera">
+          <div class="md3-loading-step-icon">
+            <span class="material-symbols-outlined">videocam</span>
+          </div>
           <span>Camera</span>
         </div>
-        <div class="loading-step" data-step="tf">
-          <md-icon class="loading-step-icon">memory</md-icon>
+        <div class="md3-loading-step" data-step="tf">
+          <div class="md3-loading-step-icon">
+            <span class="material-symbols-outlined">memory</span>
+          </div>
           <span>TensorFlow.js</span>
         </div>
-        <div class="loading-step" data-step="objects">
-          <md-icon class="loading-step-icon">category</md-icon>
+        <div class="md3-loading-step" data-step="objects">
+          <div class="md3-loading-step-icon">
+            <span class="material-symbols-outlined">category</span>
+          </div>
           <span>Object detector</span>
         </div>
-        <div class="loading-step" data-step="faces">
-          <md-icon class="loading-step-icon">face</md-icon>
+        <div class="md3-loading-step" data-step="faces">
+          <div class="md3-loading-step-icon">
+            <span class="material-symbols-outlined">face</span>
+          </div>
           <span>Face models</span>
         </div>
       </div>
@@ -44,10 +65,12 @@
   </div>
 
   <!-- App Shell -->
-  <div id="app" class="app-shell" style="display: none;">
-    <header class="top-bar">
-      <h1 class="top-bar-title">Mneme</h1>
-      <div class="top-bar-actions">
+  <div id="app" class="md3-app" style="display: none;">
+
+    <!-- Top App Bar — MD3 Small -->
+    <header class="md3-top-app-bar">
+      <h1 class="md3-top-app-bar__title">Mneme</h1>
+      <div class="md3-top-app-bar__actions">
         <md-icon-button id="btn-face-library" aria-label="Face library" style="display: none;">
           <md-icon>group</md-icon>
         </md-icon-button>
@@ -60,71 +83,105 @@
       </div>
     </header>
 
-    <nav class="nav-rail" aria-label="Detection mode">
-      <div class="nav-rail-items">
-        <button class="nav-rail-item active" data-mode="objects" aria-label="Object detection">
-          <span class="nav-rail-indicator"></span>
+    <!-- Main Area -->
+    <div class="md3-main-area">
+
+      <!-- Navigation Rail — desktop/tablet only -->
+      <nav class="md3-nav-rail" aria-label="Detection mode">
+        <button class="md3-nav-rail__item active" data-mode="objects" aria-label="Object detection">
+          <span class="md3-nav-rail__indicator"></span>
           <span class="material-symbols-outlined">category</span>
-          <span class="nav-rail-label">Objects</span>
+          <span class="md3-nav-rail__label">Objects</span>
         </button>
-        <button class="nav-rail-item" data-mode="faces" aria-label="Face recognition">
-          <span class="nav-rail-indicator"></span>
+        <button class="md3-nav-rail__item" data-mode="faces" aria-label="Face recognition">
+          <span class="md3-nav-rail__indicator"></span>
           <span class="material-symbols-outlined">face</span>
-          <span class="nav-rail-label">Faces</span>
+          <span class="md3-nav-rail__label">Faces</span>
         </button>
-        <button class="nav-rail-item" data-mode="both" aria-label="Both modes">
-          <span class="nav-rail-indicator"></span>
+        <button class="md3-nav-rail__item" data-mode="both" aria-label="Both modes">
+          <span class="md3-nav-rail__indicator"></span>
           <span class="material-symbols-outlined">visibility</span>
-          <span class="nav-rail-label">Both</span>
+          <span class="md3-nav-rail__label">Both</span>
         </button>
-      </div>
-    </nav>
+      </nav>
 
-    <main class="main-content">
-      <div class="camera-container">
-        <video id="video-feed" autoplay playsinline muted aria-label="Camera feed" role="img"></video>
-        <canvas id="overlay-objects" class="overlay"></canvas>
-        <canvas id="overlay-faces" class="overlay"></canvas>
-        <div id="camera-error" class="camera-error" style="display: none;">
-          <span class="material-symbols-outlined" style="font-size: 56px; color: var(--md-sys-color-error);">videocam_off</span>
-          <h2>Camera access needed</h2>
-          <p>Allow camera access in your browser settings to use Mneme.</p>
-          <md-filled-button id="btn-retry-camera">
-            <md-icon slot="icon">refresh</md-icon>
-            Try again
-          </md-filled-button>
+      <!-- Camera Wrapper -->
+      <div class="md3-camera-wrapper">
+        <div class="md3-camera-container">
+          <video id="video-feed" autoplay playsinline muted aria-label="Camera feed" role="img"></video>
+          <canvas id="overlay-objects" class="overlay"></canvas>
+          <canvas id="overlay-faces" class="overlay"></canvas>
+
+          <!-- Camera error state -->
+          <div id="camera-error" class="md3-camera-error" style="display: none;">
+            <span class="material-symbols-outlined" style="font-size: 56px; color: var(--md-sys-color-error);">videocam_off</span>
+            <h2>Camera access needed</h2>
+            <p>Allow camera access in your browser settings to use Mneme.</p>
+            <md-filled-button id="btn-retry-camera">
+              <md-icon slot="icon">refresh</md-icon>
+              Try again
+            </md-filled-button>
+          </div>
         </div>
+
+        <!-- Face chip — overlaid on camera -->
+        <div id="face-chip-area" class="md3-face-chip-area" style="display: none;">
+          <md-assist-chip label="Face memory off — tap to enable" id="face-off-chip">
+            <md-icon slot="icon">face</md-icon>
+          </md-assist-chip>
+        </div>
+
+        <!-- Add face FAB — overlaid on camera -->
+        <md-fab id="btn-add-face" class="md3-fab-add-face" size="medium" label="Add face" aria-label="Add face to library" style="display: none;">
+          <md-icon slot="icon">person_add</md-icon>
+        </md-fab>
       </div>
 
-      <div id="face-chip-area" class="face-chip-area" style="display: none;">
-        <md-assist-chip label="Face memory off — tap to enable" id="face-off-chip">
-          <md-icon slot="icon">face</md-icon>
-        </md-assist-chip>
-      </div>
+      <!-- Detection Log Panel — desktop only (>=1200px) -->
+      <aside id="detection-log-panel" class="md3-detection-log-panel">
+        <div class="md3-detection-log__header">
+          <h2 class="md3-detection-log__title">Detection Log</h2>
+          <md-icon-button id="btn-close-log" aria-label="Close log">
+            <md-icon>close</md-icon>
+          </md-icon-button>
+        </div>
+        <div id="detection-log-list" class="md3-detection-log__list"></div>
+        <div id="detection-log-empty" class="md3-detection-log__empty">
+          <span class="material-symbols-outlined">radar</span>
+          <p>No detections yet</p>
+          <p style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Objects and faces will appear here</p>
+        </div>
+      </aside>
+    </div>
 
-      <md-fab id="btn-add-face" size="medium" label="Add face" aria-label="Add face to library" style="display: none;">
-        <md-icon slot="icon">person_add</md-icon>
-      </md-fab>
-    </main>
-
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-header">
-        <h2 class="sidebar-title">Face library</h2>
-        <md-icon-button id="btn-close-sidebar" aria-label="Close sidebar">
-          <md-icon>close</md-icon>
-        </md-icon-button>
-      </div>
-      <md-list id="face-list" class="face-list"></md-list>
-      <div id="sidebar-empty" class="sidebar-empty">
-        <span class="material-symbols-outlined" style="font-size: 48px; color: var(--md-sys-color-outline);">person_add</span>
-        <p>No faces saved yet</p>
-        <p style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Tap the + button to add one</p>
-      </div>
-    </aside>
+    <!-- Bottom Navigation Bar — mobile only -->
+    <nav class="md3-bottom-nav" aria-label="Detection mode">
+      <button class="md3-bottom-nav__item active" data-mode="objects" aria-label="Object detection">
+        <div class="md3-bottom-nav__icon-wrap">
+          <span class="md3-bottom-nav__indicator"></span>
+          <span class="material-symbols-outlined">category</span>
+        </div>
+        <span class="md3-bottom-nav__label">Objects</span>
+      </button>
+      <button class="md3-bottom-nav__item" data-mode="faces" aria-label="Face recognition">
+        <div class="md3-bottom-nav__icon-wrap">
+          <span class="md3-bottom-nav__indicator"></span>
+          <span class="material-symbols-outlined">face</span>
+        </div>
+        <span class="md3-bottom-nav__label">Faces</span>
+      </button>
+      <button class="md3-bottom-nav__item" data-mode="both" aria-label="Both modes">
+        <div class="md3-bottom-nav__icon-wrap">
+          <span class="md3-bottom-nav__indicator"></span>
+          <span class="material-symbols-outlined">visibility</span>
+        </div>
+        <span class="md3-bottom-nav__label">Both</span>
+      </button>
+    </nav>
   </div>
 
   <!-- Scrim -->
-  <div id="scrim" class="scrim" aria-hidden="true"></div>
+  <div id="scrim" class="md3-scrim" aria-hidden="true"></div>
 
   <!-- Consent Dialog -->
   <md-dialog id="consent-dialog">
@@ -152,43 +209,59 @@
   </md-dialog>
 
   <!-- Settings Sheet -->
-  <div id="settings-sheet" class="settings-sheet" style="display: none;">
-    <div class="settings-header">
+  <div id="settings-sheet" class="md3-settings-sheet" style="display: none;">
+    <div class="md3-settings-sheet__header">
       <h2>Settings</h2>
       <md-icon-button id="btn-close-settings" aria-label="Close settings">
         <md-icon>close</md-icon>
       </md-icon-button>
     </div>
-    <div class="settings-body">
-      <div class="settings-row">
+    <div class="md3-settings-sheet__body">
+      <div class="md3-settings-row">
         <label for="show-confidence">Show confidence scores</label>
         <md-switch id="show-confidence" selected></md-switch>
       </div>
-      <div class="settings-row">
+      <div class="md3-settings-row">
         <label for="mirror-video">Mirror camera</label>
         <md-switch id="mirror-video"></md-switch>
       </div>
-      <div class="settings-row column">
+      <div class="md3-settings-row column">
         <label for="detect-threshold">Detection threshold: <span id="detect-threshold-val">0.5</span></label>
         <md-slider id="detect-threshold" min="0.3" max="0.9" step="0.05" value="0.5"></md-slider>
       </div>
-      <div class="settings-row column">
+      <div class="md3-settings-row column">
         <label for="face-threshold">Face match distance: <span id="face-threshold-val">0.5</span></label>
         <md-slider id="face-threshold" min="0.3" max="0.7" step="0.05" value="0.5"></md-slider>
       </div>
-      <div class="settings-row">
+      <div class="md3-settings-row">
         <label for="theme-switch">Dark mode</label>
         <md-switch id="theme-switch"></md-switch>
       </div>
       <md-divider></md-divider>
-      <div class="settings-row">
+      <div class="md3-settings-row">
         <md-filled-tonal-button id="btn-delete-all-faces" style="color: var(--md-sys-color-error);">Delete all face data</md-filled-tonal-button>
       </div>
     </div>
   </div>
 
+  <!-- Face Library Sidebar -->
+  <aside id="sidebar" class="md3-sidebar">
+    <div class="md3-sidebar__header">
+      <h2 class="md3-sidebar__title">Face library</h2>
+      <md-icon-button id="btn-close-sidebar" aria-label="Close sidebar">
+        <md-icon>close</md-icon>
+      </md-icon-button>
+    </div>
+    <md-list id="face-list" class="md3-sidebar__list"></md-list>
+    <div id="sidebar-empty" class="md3-sidebar__empty">
+      <span class="material-symbols-outlined" style="font-size: 48px; color: var(--md-sys-color-outline);">person_add</span>
+      <p>No faces saved yet</p>
+      <p style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Tap the + button to add one</p>
+    </div>
+  </aside>
+
   <!-- Toast Container -->
-  <div id="toast-container" class="toast-container"></div>
+  <div id="toast-container" class="md3-toast-container"></div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

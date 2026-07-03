@@ -1,8 +1,10 @@
+/**
+ * Canvas overlay rendering — draws bounding boxes on camera feed.
+ * Uses computed MD3 token colors for consistency.
+ */
 import type { BoundingBox, Detection, DrawOpts, FaceDetectionBox } from '../types';
 
-// cache canvas contexts to avoid repeated getContext calls
 const ctxCache = new Map<string, CanvasRenderingContext2D>();
-// track logical dimensions per canvas (not DPR-scaled)
 const logicalSize = new Map<string, { w: number; h: number }>();
 
 function getCtx(canvasId: string): CanvasRenderingContext2D | null {
@@ -12,6 +14,10 @@ function getCtx(canvasId: string): CanvasRenderingContext2D | null {
   const ctx = canvas.getContext('2d')!;
   ctxCache.set(canvasId, ctx);
   return ctx;
+}
+
+function getTokenColor(prop: string, fallback: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(prop).trim() || fallback;
 }
 
 export function setupCanvases(videoEl: HTMLVideoElement): void {
@@ -67,7 +73,11 @@ export function drawObjectBoxes(
   const ch = size?.h ?? ctx.canvas.height;
   ctx.clearRect(0, 0, cw, ch);
 
-  ctx.font = '12px "Roboto Flex", sans-serif';
+  const tertiary = getTokenColor('--md-sys-color-tertiary', '#78536A');
+  const tertiaryContainer = getTokenColor('--md-sys-color-tertiary-container', '#FFD8EF');
+  const onTertiaryContainer = getTokenColor('--md-sys-color-on-tertiary-container', '#2E1125');
+
+  ctx.font = '500 12px "Roboto Flex", sans-serif';
 
   for (const d of detections) {
     const [x, y, w, h] = d.bbox;
@@ -75,9 +85,9 @@ export function drawObjectBoxes(
       ? `${d.class} ${Math.round(d.score * 100)}%`
       : d.class;
     drawBox(ctx, { x, y, w, h }, {
-      strokeColor: '#78536A',
-      pillBg: '#FFD8EF',
-      pillText: '#2E1125',
+      strokeColor: tertiary,
+      pillBg: tertiaryContainer,
+      pillText: onTertiaryContainer,
       label,
     });
   }
@@ -96,7 +106,11 @@ export function drawFaceBoxes(
   const ch = size?.h ?? ctx.canvas.height;
   ctx.clearRect(0, 0, cw, ch);
 
-  ctx.font = '12px "Roboto Flex", sans-serif';
+  const primary = getTokenColor('--md-sys-color-primary', '#4A55A2');
+  const primaryContainer = getTokenColor('--md-sys-color-primary-container', '#DEE0FF');
+  const onPrimaryContainer = getTokenColor('--md-sys-color-on-primary-container', '#00006E');
+
+  ctx.font = '500 12px "Roboto Flex", sans-serif';
 
   for (let i = 0; i < detections.length; i++) {
     const box = detections[i].detection?.box;
@@ -104,9 +118,9 @@ export function drawFaceBoxes(
     const name = names[i] || 'Unknown';
 
     drawBox(ctx, { x: box.x, y: box.y, w: box.width, h: box.height }, {
-      strokeColor: '#4A55A2',
-      pillBg: '#DEE0FF',
-      pillText: '#00006E',
+      strokeColor: primary,
+      pillBg: primaryContainer,
+      pillText: onPrimaryContainer,
       label: name,
     });
   }
@@ -128,16 +142,18 @@ function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
 
 function drawBox(ctx: CanvasRenderingContext2D, box: BoundingBox, opts: DrawOpts): void {
   const { x, y, w, h } = box;
-  const r = 6;
+  const r = 8; // MD3 medium corner
 
+  // Box stroke
   roundedRect(ctx, x, y, w, h, r);
   ctx.strokeStyle = opts.strokeColor;
   ctx.lineWidth = 2;
   ctx.stroke();
 
+  // Label pill
   const tw = ctx.measureText(opts.label).width;
-  const pw = tw + 12;
-  const ph = 22;
+  const pw = tw + 16;
+  const ph = 24;
   const px = x;
   const py = y - ph - 4;
 
@@ -146,5 +162,5 @@ function drawBox(ctx: CanvasRenderingContext2D, box: BoundingBox, opts: DrawOpts
   ctx.fill();
 
   ctx.fillStyle = opts.pillText;
-  ctx.fillText(opts.label, px + 6, py + 15);
+  ctx.fillText(opts.label, px + 8, py + 16);
 }
