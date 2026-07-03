@@ -114,4 +114,4 @@ One-time setup: repo Settings > Pages > Source > GitHub Actions.
 
 ## License
 
-MIT
+Apache 2.0
