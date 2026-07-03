@@ -19,7 +19,7 @@ import '@material/web/divider/divider.js';
 import '@material/web/chips/assist-chip.js';
 import '@material/web/progress/circular-progress.js';
 
-import { startCamera } from './lib/camera';
+import { startCamera, stopCamera } from './lib/camera';
 import { loadDetector, detectObjects, getObjectDetectionInterval } from './lib/detector';
 import { loadFaceModels, detectFaces, rebuildMatcher, getFaceInterval, getFaceApi } from './lib/faceEngine';
 import { saveFace, clearAllFaces, isStorageAvailable } from './lib/faceStore';
@@ -36,6 +36,9 @@ import type { SavedFace, AppMode, Settings } from './types';
 let settings: Settings = loadSettings();
 let objectBusy = false;
 let faceBusy = false;
+let faceModelsLoaded = false;
+let objectModelLoaded = false;
+let currentFacingMode: 'user' | 'environment' = 'user';
 
 function loadSettings(): Settings {
   return {
@@ -55,7 +58,7 @@ function saveSettings(): void {
   localStorage.setItem('theme', settings.theme);
 }
 
-// Loading progress helpers
+// Loading progress
 const STEP_WEIGHTS: Record<string, number> = {
   camera: 0.15,
   tf: 0.25,
@@ -89,12 +92,10 @@ function updateProgress(step: string, state: 'active' | 'done' | 'error', pct: n
 }
 
 async function init() {
-  // Initialize dynamic theme first
   await initTheme();
 
   const loadingScreen = document.getElementById('loading-screen')!;
   const app = document.getElementById('app')!;
-
   let runningPct = 0;
 
   function advanceToStep(step: string, state: 'active' | 'done' | 'error') {
@@ -102,23 +103,17 @@ async function init() {
       .slice(0, Object.keys(STEP_WEIGHTS).indexOf(step))
       .reduce((sum, s) => sum + (STEP_WEIGHTS[s] || 0), 0);
 
-    if (state === 'active') {
-      runningPct = base * 100;
-    } else if (state === 'done') {
-      runningPct = (base + STEP_WEIGHTS[step]) * 100;
-    }
+    if (state === 'active') runningPct = base * 100;
+    else if (state === 'done') runningPct = (base + STEP_WEIGHTS[step]) * 100;
 
     updateProgress(step, state, runningPct);
   }
 
   try {
     const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
-
-    // Only load what the current mode needs
     const mode = getCurrentMode();
-    const needsObjects = mode === 'objects' || mode === 'both';
-    const needsFaces = (mode === 'faces' || mode === 'both') && hasConsent();
 
+    // Always load camera and TF
     advanceToStep('camera', 'active');
     await startCamera(videoEl);
     setupCanvases(videoEl);
@@ -128,28 +123,27 @@ async function init() {
     await (window as any).tf.ready();
     advanceToStep('tf', 'done');
 
-    if (needsObjects) {
+    // Load only what current mode needs
+    if (mode === 'objects' || mode === 'both') {
       advanceToStep('objects', 'active');
       await loadDetector();
+      objectModelLoaded = true;
       advanceToStep('objects', 'done');
     } else {
       advanceToStep('objects', 'done');
     }
 
-    if (needsFaces) {
+    if ((mode === 'faces' || mode === 'both') && hasConsent()) {
       advanceToStep('faces', 'active');
       const modelUrl = import.meta.env.BASE_URL + 'models';
       await loadFaceModels(modelUrl);
+      faceModelsLoaded = true;
       advanceToStep('faces', 'done');
+      await rebuildMatcher();
     } else {
       advanceToStep('faces', 'done');
     }
 
-    if (hasConsent()) {
-      await rebuildMatcher();
-    }
-
-    // Transition to app
     app.style.display = '';
     loadingScreen.classList.add('fade-out');
     setTimeout(() => loadingScreen.remove(), 600);
@@ -173,19 +167,14 @@ function initUI() {
   // Mode toggle
   initModeToggle((mode: AppMode) => {
     updateModeUI(mode);
-    // If switching to a mode that needs models we haven't loaded, load them lazily
     lazyLoadForMode(mode);
   });
 
   updateModeUI(getCurrentMode());
-
-  // Sidebar
   initSidebar();
-
-  // Detection log
   initDetectionLog();
 
-  // Settings
+  // === Settings ===
   const settingsSheet = document.getElementById('settings-sheet')!;
   const btnSettings = document.getElementById('btn-settings')!;
   const btnCloseSettings = document.getElementById('btn-close-settings')!;
@@ -195,12 +184,21 @@ function initUI() {
     settingsSheet.classList.add('open');
     scrim.classList.add('visible');
   });
+
   btnCloseSettings.addEventListener('click', () => {
     settingsSheet.classList.remove('open');
     scrim.classList.remove('visible');
   });
 
-  // Theme toggle
+  // Scrim click closes everything
+  scrim.addEventListener('click', () => {
+    settingsSheet.classList.remove('open');
+    document.getElementById('sidebar')?.classList.remove('open');
+    document.getElementById('mobile-log-sheet')?.classList.remove('open');
+    scrim.classList.remove('visible');
+  });
+
+  // === Theme toggle ===
   const btnTheme = document.getElementById('btn-theme')!;
   btnTheme.addEventListener('click', () => {
     const next = toggleTheme();
@@ -209,11 +207,9 @@ function initUI() {
     showToast(`Switched to ${next} mode`);
   });
 
-  // Theme switch in settings
   const themeSwitch = document.getElementById('theme-switch') as any;
   const storedTheme = getStoredTheme();
-  themeSwitch.selected = storedTheme === 'dark' ||
-    (storedTheme === 'system' && isDark());
+  themeSwitch.selected = storedTheme === 'dark' || (storedTheme === 'system' && isDark());
 
   const icon = btnTheme.querySelector('md-icon');
   if (icon) icon.textContent = isDark() ? 'light_mode' : 'dark_mode';
@@ -234,7 +230,7 @@ function initUI() {
     }
   });
 
-  // Settings controls
+  // === Settings controls ===
   const showConfidenceSwitch = document.getElementById('show-confidence') as any;
   const mirrorSwitch = document.getElementById('mirror-video') as any;
   const detectSlider = document.getElementById('detect-threshold') as any;
@@ -272,25 +268,23 @@ function initUI() {
     saveSettings();
   });
 
-  // Delete all faces
-  const btnDeleteAll = document.getElementById('btn-delete-all-faces')!;
-  btnDeleteAll.addEventListener('click', async () => {
+  // === Delete all faces ===
+  document.getElementById('btn-delete-all-faces')?.addEventListener('click', async () => {
     await clearAllFaces();
     await rebuildMatcher();
     showToast('All face data deleted');
     renderFaceList();
   });
 
-  // Add face FAB
-  const btnAddFace = document.getElementById('btn-add-face')!;
-  btnAddFace.addEventListener('click', () => handleAddFace());
+  // === Add face FAB ===
+  document.getElementById('btn-add-face')?.addEventListener('click', () => handleAddFace());
 
-  // Face memory off chip
+  // === Face memory off chip ===
   document.getElementById('face-off-chip')?.addEventListener('click', () => {
     (document.getElementById('consent-dialog') as any).open = true;
   });
 
-  // Consent dialog
+  // === Consent dialog ===
   const consentDialog = document.getElementById('consent-dialog') as any;
   const consentForm = document.getElementById('consent-form')!;
 
@@ -310,37 +304,55 @@ function initUI() {
         return;
       }
       setConsent(true);
-      // Load face models if not already loaded
+      // Load face models if needed and not loaded
       const mode = getCurrentMode();
-      if (mode === 'faces' || mode === 'both') {
-        const modelUrl = import.meta.env.BASE_URL + 'models';
-        await loadFaceModels(modelUrl);
+      if ((mode === 'faces' || mode === 'both') && !faceModelsLoaded) {
+        try {
+          const modelUrl = import.meta.env.BASE_URL + 'models';
+          await loadFaceModels(modelUrl);
+          faceModelsLoaded = true;
+        } catch {}
       }
       await rebuildMatcher();
       showToast('Face memory enabled');
+      updateModeUI(getCurrentMode());
     } else {
       setConsent(false);
       updateModeUI(getCurrentMode());
     }
   });
 
-  // Retry camera
+  // === Camera switch ===
+  document.getElementById('btn-switch-camera')?.addEventListener('click', async () => {
+    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    try {
+      stopCamera();
+      const videoEl2 = document.getElementById('video-feed') as HTMLVideoElement;
+      await startCamera(videoEl2, currentFacingMode);
+      setupCanvases(videoEl2);
+      showToast(`Camera: ${currentFacingMode === 'user' ? 'Front' : 'Back'}`);
+    } catch {
+      showToast('Failed to switch camera');
+      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    }
+  });
+
+  // === Retry camera ===
   document.getElementById('btn-retry-camera')?.addEventListener('click', () => {
     window.location.reload();
   });
 }
 
 async function lazyLoadForMode(mode: AppMode): Promise<void> {
-  const needsObjects = mode === 'objects' || mode === 'both';
-  const needsFaces = (mode === 'faces' || mode === 'both') && hasConsent();
-
   try {
-    if (needsObjects) {
+    if ((mode === 'objects' || mode === 'both') && !objectModelLoaded) {
       await loadDetector();
+      objectModelLoaded = true;
     }
-    if (needsFaces) {
+    if ((mode === 'faces' || mode === 'both') && hasConsent() && !faceModelsLoaded) {
       const modelUrl = import.meta.env.BASE_URL + 'models';
       await loadFaceModels(modelUrl);
+      faceModelsLoaded = true;
       await rebuildMatcher();
     }
   } catch (err: any) {
@@ -377,11 +389,30 @@ async function handleAddFace() {
     return;
   }
 
+  // Ensure face models are loaded before detection
+  if (!faceModelsLoaded) {
+    showToast('Loading face models...');
+    try {
+      const modelUrl = import.meta.env.BASE_URL + 'models';
+      await loadFaceModels(modelUrl);
+      faceModelsLoaded = true;
+      await rebuildMatcher();
+    } catch {
+      showToast('Failed to load face models');
+      return;
+    }
+  }
+
   const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
   const addFaceDialog = document.getElementById('add-face-dialog') as any;
   const nameInput = document.getElementById('face-name-input') as HTMLInputElement;
   const addFaceForm = document.getElementById('add-face-form')!;
   const api = getFaceApi();
+
+  if (!api?.nets?.tinyFaceDetector?.isLoaded) {
+    showToast('Face detection not ready. Try again in a moment.');
+    return;
+  }
 
   const offscreen = document.createElement('canvas');
   offscreen.width = videoEl.videoWidth || 1280;
@@ -469,7 +500,7 @@ function startDetectionLoops() {
 
   function objectLoop() {
     const mode = getCurrentMode();
-    if ((mode === 'objects' || mode === 'both') && !objectBusy) {
+    if ((mode === 'objects' || mode === 'both') && objectModelLoaded && !objectBusy) {
       objectBusy = true;
       detectObjects(videoEl, settings.detectThreshold).then((detections) => {
         drawObjectBoxes('overlay-objects', detections, settings.showConfidence);
@@ -483,7 +514,7 @@ function startDetectionLoops() {
 
   function faceLoop() {
     const mode = getCurrentMode();
-    if ((mode === 'faces' || mode === 'both') && hasConsent() && !faceBusy) {
+    if ((mode === 'faces' || mode === 'both') && hasConsent() && faceModelsLoaded && !faceBusy) {
       faceBusy = true;
       detectFaces(videoEl).then(({ detections, names }) => {
         drawFaceBoxes('overlay-faces', detections, names);
