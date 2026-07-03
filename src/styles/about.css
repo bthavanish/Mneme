@@ -1,0 +1,421 @@
+/* ============================================================
+   About Page
+   ============================================================ */
+
+.about-page {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--md-sys-color-surface);
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform var(--md-sys-motion-duration-medium4) var(--md-sys-motion-easing-emphasized-decelerate);
+}
+
+.about-page.open {
+  transform: translateX(0);
+}
+
+@media (max-width: 599px) {
+  .about-page {
+    transform: translateY(100%);
+  }
+  .about-page.open {
+    transform: translateY(0);
+  }
+}
+
+.about-page__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 16px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: var(--md-sys-color-surface);
+  z-index: 2;
+}
+
+.about-page__header-title {
+  flex: 1;
+  font: 500 1.125rem/1.5rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface);
+  margin: 0;
+}
+
+.about-page__close {
+  flex-shrink: 0;
+  --md-icon-button-icon-color: var(--md-sys-color-on-surface);
+}
+
+/* ============================================================
+   Hero
+   ============================================================ */
+
+.about-hero {
+  position: relative;
+  text-align: center;
+  padding: 56px 24px 48px;
+  overflow: hidden;
+}
+
+.about-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.about-hero-shape {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.08;
+}
+
+.about-hero-shape--1 {
+  width: 320px;
+  height: 320px;
+  top: -80px;
+  right: -60px;
+  background: var(--md-sys-color-primary);
+}
+
+.about-hero-shape--2 {
+  width: 200px;
+  height: 200px;
+  bottom: -40px;
+  left: -30px;
+  background: var(--md-sys-color-tertiary);
+}
+
+.about-hero-shape--3 {
+  width: 140px;
+  height: 140px;
+  top: 20px;
+  left: 15%;
+  background: var(--md-sys-color-secondary);
+}
+
+.about-hero-icon {
+  font-size: 72px;
+  color: var(--md-sys-color-primary);
+  position: relative;
+  z-index: 1;
+}
+
+.about-title {
+  font: 600 2.75rem/3.25rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface);
+  margin: 12px 0 8px;
+  position: relative;
+  z-index: 1;
+  letter-spacing: -0.02em;
+}
+
+.about-subtitle {
+  font: 400 1.0625rem/1.625rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface-variant);
+  margin: 0;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   Sections
+   ============================================================ */
+
+.about-content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding-bottom: 64px;
+}
+
+.about-section {
+  margin-bottom: 48px;
+  padding: 0 24px;
+}
+
+.about-section-title {
+  font: 600 1.375rem/1.75rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface);
+  margin: 0 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.about-section-title::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, var(--md-sys-color-outline-variant), transparent);
+}
+
+/* ============================================================
+   Team Grid — horizontal scroll on desktop, vertical on mobile
+   ============================================================ */
+
+.about-team-grid {
+  display: flex;
+  gap: 28px;
+  overflow-x: auto;
+  padding: 8px 4px 20px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--md-sys-color-outline-variant) transparent;
+}
+
+@media (max-width: 599px) {
+  .about-team-grid {
+    flex-direction: column;
+    align-items: center;
+    overflow-x: visible;
+    gap: 24px;
+  }
+}
+
+.about-team-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 170px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+}
+
+.about-team-img-wrap {
+  width: 150px;
+  height: 150px;
+  clip-path: var(--shape);
+  background: var(--card-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: transform var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard),
+              filter var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard);
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.08));
+}
+
+.about-team-img-wrap:hover {
+  transform: scale(1.08) rotate(2deg);
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.14));
+}
+
+.about-team-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.about-team-name {
+  font: 500 0.9375rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface);
+  text-align: center;
+}
+
+.about-team-role {
+  font: 400 0.75rem/1rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface-variant);
+  text-align: center;
+  margin-top: -8px;
+}
+
+/* ============================================================
+   How It Works Grid
+   ============================================================ */
+
+.about-how-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 16px;
+}
+
+.about-how-card {
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  transition: background var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard),
+              border-color var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard),
+              transform var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard);
+}
+
+.about-how-card:hover {
+  background: var(--md-sys-color-surface-container);
+  border-color: var(--md-sys-color-primary);
+  transform: translateY(-2px);
+}
+
+.about-how-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--md-sys-shape-corner-large);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-how-icon-wrap .material-symbols-outlined {
+  font-size: 24px;
+}
+
+.about-how-icon-wrap--camera {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.about-how-icon-wrap--objects {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+}
+
+.about-how-icon-wrap--face {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.about-how-icon-wrap--local {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.about-how-icon-wrap--privacy {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+}
+
+.about-how-icon-wrap--platform {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+}
+
+.about-how-card h3 {
+  font: 500 1rem/1.5rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface);
+  margin: 0;
+}
+
+.about-how-card p {
+  font: 400 0.875rem/1.5rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface-variant);
+  margin: 0;
+}
+
+/* ============================================================
+   Technology Stack
+   ============================================================ */
+
+.about-stack {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.about-stack-item {
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 16px 20px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.about-stack-icon {
+  font-size: 22px;
+  color: var(--md-sys-color-primary);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.about-stack-item div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-stack-item strong {
+  color: var(--md-sys-color-on-surface);
+  font-weight: 500;
+  font: 500 0.875rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
+}
+
+.about-stack-item span:last-child {
+  font: 400 0.75rem/1.125rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ============================================================
+   Capstone
+   ============================================================ */
+
+.about-capstone {
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  padding: 28px 28px 24px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.about-capstone-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  padding: 6px 16px;
+  border-radius: var(--md-sys-shape-corner-full);
+  font: 500 0.8125rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
+  margin-bottom: 20px;
+}
+
+.about-capstone-highlight .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.about-capstone p {
+  font: 400 0.9375rem/1.75rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface-variant);
+  margin: 0 0 16px;
+}
+
+.about-capstone p:last-child {
+  margin-bottom: 0;
+}
+
+.about-capstone-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.about-capstone-name .material-symbols-outlined {
+  font-size: 22px;
+  color: var(--md-sys-color-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.about-capstone-name p {
+  margin: 0;
+}
+
+.about-empty {
+  font: 400 0.875rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-outline);
+  text-align: center;
+  padding: 32px;
+}

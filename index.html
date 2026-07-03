@@ -63,6 +63,9 @@
         <md-icon-button id="btn-logs-mobile" aria-label="Detection log" class="md3-mobile-only">
           <md-icon>radar</md-icon>
         </md-icon-button>
+        <md-icon-button id="btn-about" aria-label="About">
+          <md-icon>info</md-icon>
+        </md-icon-button>
         <md-icon-button id="btn-face-library" aria-label="Face library" style="display: none;">
           <md-icon>group</md-icon>
         </md-icon-button>
@@ -275,6 +278,17 @@
 
   <!-- Toast Container -->
   <div id="toast-container" class="md3-toast-container"></div>
+
+  <!-- About Page -->
+  <div id="about-page" class="about-page">
+    <div class="about-page__header">
+      <h2 class="about-page__header-title">About</h2>
+      <md-icon-button id="btn-close-about" class="about-page__close" aria-label="Close about">
+        <md-icon>close</md-icon>
+      </md-icon-button>
+    </div>
+    <div id="about-page-content"></div>
+  </div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

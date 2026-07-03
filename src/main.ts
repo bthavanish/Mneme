@@ -1,6 +1,7 @@
 import './styles/tokens.css';
 import './styles/layout.css';
 import './styles/animations.css';
+import './styles/about.css';
 
 // MD3 web components — individual imports only
 import '@material/web/icon/icon.js';
@@ -30,6 +31,7 @@ import { showToast } from './ui/toast';
 import { initModeToggle, getCurrentMode } from './ui/modeToggle';
 import { initDetectionLog, logObjectDetections, logFaceDetections } from './ui/detectionLog';
 import { initTheme, setTheme, toggleTheme, getStoredTheme, isDark } from './lib/theme';
+import { renderAboutPage } from './pages/about';
 
 import type { SavedFace, AppMode, Settings } from './types';
 
@@ -39,6 +41,7 @@ let faceBusy = false;
 let faceModelsLoaded = false;
 let objectModelLoaded = false;
 let currentFacingMode: 'user' | 'environment' = 'user';
+let lastFaceDetection: { descriptor: Float32Array; thumbnail: string } | null = null;
 
 
 function loadSettings(): Settings {
@@ -164,10 +167,20 @@ async function init() {
           await loadFaceModels(modelUrl);
           faceModelsLoaded = true;
           await rebuildMatcher();
-        } catch {}
+        } catch (err: any) {
+          console.warn('[mneme] face model load failed:', err.message);
+        }
       }
     } else {
-      // Consent already given
+      // Consent already given — load face models now
+      const modelUrl = import.meta.env.BASE_URL + 'models';
+      try {
+        await loadFaceModels(modelUrl);
+        faceModelsLoaded = true;
+        await rebuildMatcher();
+      } catch (err: any) {
+        console.warn('[mneme] face model load failed:', err.message);
+      }
     }
 
     // Step 3: Now start camera (after consent is resolved)
@@ -386,6 +399,20 @@ function initUI() {
   document.getElementById('btn-retry-camera')?.addEventListener('click', () => {
     window.location.reload();
   });
+
+  // === About page ===
+  const aboutPage = document.getElementById('about-page')!;
+  const btnAbout = document.getElementById('btn-about')!;
+  const btnCloseAbout = document.getElementById('btn-close-about')!;
+
+  btnAbout.addEventListener('click', () => {
+    renderAboutPage();
+    aboutPage.classList.add('open');
+  });
+
+  btnCloseAbout.addEventListener('click', () => {
+    aboutPage.classList.remove('open');
+  });
 }
 
 async function lazyLoadForMode(mode: AppMode): Promise<void> {
@@ -448,55 +475,18 @@ async function handleAddFace() {
     }
   }
 
-  const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
   const addFaceDialog = document.getElementById('add-face-dialog') as any;
   const nameInput = document.getElementById('face-name-input') as HTMLInputElement;
   const addFaceForm = document.getElementById('add-face-form')!;
-  const api = getFaceApi();
 
-  if (!api?.nets?.tinyFaceDetector?.isLoaded) {
-    showToast('Face detection not ready. Try again in a moment.');
+  // Use cached detection from the live loop
+  if (!lastFaceDetection) {
+    showToast('No face detected. Look at the camera and try again.');
     return;
   }
 
-  const offscreen = document.createElement('canvas');
-  offscreen.width = videoEl.videoWidth || 1280;
-  offscreen.height = videoEl.videoHeight || 720;
-  const offCtx = offscreen.getContext('2d')!;
-  offCtx.drawImage(videoEl, 0, 0);
-
-  const allDetections = await api
-    .detectAllFaces(offscreen, new api.TinyFaceDetectorOptions())
-    .withFaceLandmarks();
-
-  if (allDetections.length > 1) {
-    showToast('Multiple faces in frame. Try adding one at a time.');
-    return;
-  }
-
-  const detection = await api
-    .detectSingleFace(offscreen, new api.TinyFaceDetectorOptions())
-    .withFaceLandmarks()
-    .withFaceDescriptor();
-
-  if (!detection) {
-    showToast("Didn't spot a face in that shot. Try moving closer.");
-    return;
-  }
-
-  const box = detection.detection.box;
-  const pad = 20;
-  const cropX = Math.max(0, box.x - pad);
-  const cropY = Math.max(0, box.y - pad);
-  const cropW = Math.min(offscreen.width - cropX, box.width + pad * 2);
-  const cropH = Math.min(offscreen.height - cropY, box.height + pad * 2);
-
-  const thumbCanvas = document.createElement('canvas');
-  thumbCanvas.width = 80;
-  thumbCanvas.height = 80;
-  const thumbCtx = thumbCanvas.getContext('2d')!;
-  thumbCtx.drawImage(offscreen, cropX, cropY, cropW, cropH, 0, 0, 80, 80);
-  const thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.7);
+  const descriptor = lastFaceDetection.descriptor;
+  const thumbnail = lastFaceDetection.thumbnail;
 
   addFaceDialog.open = true;
   nameInput.value = '';
@@ -523,13 +513,14 @@ async function handleAddFace() {
     const face: SavedFace = {
       id: crypto.randomUUID(),
       name,
-      descriptor: Array.from(detection.descriptor),
+      descriptor: Array.from(descriptor),
       addedAt: Date.now(),
       thumbnail,
     };
 
     await saveFace(face);
     await rebuildMatcher();
+    lastFaceDetection = null;
     showToast(`Saved ${name}`);
     renderFaceList();
 
@@ -559,11 +550,40 @@ function startDetectionLoops() {
 
   function faceLoop() {
     const mode = getCurrentMode();
-    if ((mode === 'faces' || mode === 'both') && hasConsent() && faceModelsLoaded && !faceBusy) {
+    const api = getFaceApi();
+    if ((mode === 'faces' || mode === 'both') && hasConsent() && faceModelsLoaded && !faceBusy && api?.nets?.tinyFaceDetector?.isLoaded) {
       faceBusy = true;
       detectFaces(videoEl).then(({ detections, names }) => {
         drawFaceBoxes('overlay-faces', detections, names);
         logFaceDetections(names);
+        // Cache the most recent face detection for add-face
+        if (detections.length > 0) {
+          try {
+            const offscreen = document.createElement('canvas');
+            offscreen.width = videoEl.videoWidth || 1280;
+            offscreen.height = videoEl.videoHeight || 720;
+            const offCtx = offscreen.getContext('2d')!;
+            offCtx.drawImage(videoEl, 0, 0);
+            const box = (detections[0] as any).detection.box;
+            const pad = 20;
+            const cropX = Math.max(0, box.x - pad);
+            const cropY = Math.max(0, box.y - pad);
+            const cropW = Math.min(offscreen.width - cropX, box.width + pad * 2);
+            const cropH = Math.min(offscreen.height - cropY, box.height + pad * 2);
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = 80;
+            thumbCanvas.height = 80;
+            const thumbCtx = thumbCanvas.getContext('2d')!;
+            thumbCtx.drawImage(offscreen, cropX, cropY, cropW, cropH, 0, 0, 80, 80);
+            lastFaceDetection = {
+              descriptor: (detections[0] as any).descriptor,
+              thumbnail: thumbCanvas.toDataURL('image/jpeg', 0.7),
+            };
+          } catch {}
+        }
+        faceBusy = false;
+      }).catch((err: any) => {
+        console.warn('[mneme] face detect error:', err.message);
         faceBusy = false;
       });
     }

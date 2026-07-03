@@ -147,7 +147,7 @@ function drawBox(ctx: CanvasRenderingContext2D, box: BoundingBox, opts: DrawOpts
   // Box stroke
   roundedRect(ctx, x, y, w, h, r);
   ctx.strokeStyle = opts.strokeColor;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.5;
   ctx.stroke();
 
   // Label pill
@@ -155,7 +155,7 @@ function drawBox(ctx: CanvasRenderingContext2D, box: BoundingBox, opts: DrawOpts
   const pw = tw + 16;
   const ph = 24;
   const px = x;
-  const py = y - ph - 4;
+  const py = Math.max(0, y - ph - 4);
 
   ctx.fillStyle = opts.pillBg;
   roundedRect(ctx, px, py, pw, ph, 4);
