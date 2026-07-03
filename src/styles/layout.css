@@ -707,6 +707,61 @@
 .md3-nav-rail__item.active { color: var(--md-sys-color-on-surface); }
 
 /* ============================================================
+   Consent Dialog — centered, wider than text content
+   ============================================================ */
+
+md-dialog#consent-dialog {
+  max-width: 560px;
+  min-width: 340px;
+}
+
+md-dialog#consent-dialog::part(dialog) {
+  padding: 24px 32px 16px;
+}
+
+md-dialog#consent-dialog [slot="headline"] {
+  font: 500 1.375rem/1.75rem 'Roboto Flex', 'Roboto', sans-serif;
+  padding: 0 0 8px;
+  color: var(--md-sys-color-on-surface);
+}
+
+md-dialog#consent-dialog [slot="content"] {
+  font: 400 0.875rem/1.5rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface-variant);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+}
+
+md-dialog#consent-dialog [slot="actions"] {
+  padding: 16px 0 0;
+}
+
+md-dialog#add-face-dialog {
+  max-width: 400px;
+  min-width: 300px;
+}
+
+md-dialog#add-face-dialog::part(dialog) {
+  padding: 24px 32px 16px;
+}
+
+md-dialog#add-face-dialog [slot="headline"] {
+  font: 500 1.375rem/1.75rem 'Roboto Flex', 'Roboto', sans-serif;
+  padding: 0 0 16px;
+  color: var(--md-sys-color-on-surface);
+}
+
+md-dialog#add-face-dialog [slot="content"] {
+  padding: 0;
+}
+
+md-dialog#add-face-dialog [slot="actions"] {
+  padding: 16px 0 0;
+}
+
+/* ============================================================
    Toast / Snackbar
    ============================================================ */
 

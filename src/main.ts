@@ -40,6 +40,7 @@ let faceModelsLoaded = false;
 let objectModelLoaded = false;
 let currentFacingMode: 'user' | 'environment' = 'user';
 
+
 function loadSettings(): Settings {
   return {
     showConfidence: localStorage.getItem('show_confidence') !== 'false',
@@ -91,6 +92,38 @@ function updateProgress(step: string, state: 'active' | 'done' | 'error', pct: n
   if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
 }
 
+function waitForConsentDialog(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const consentDialog = document.getElementById('consent-dialog') as any;
+    const consentForm = document.getElementById('consent-form')!;
+
+    consentDialog.open = true;
+
+    const handler = async (e: Event) => {
+      const formEvent = e as SubmitEvent;
+      const value = formEvent.submitter ? (formEvent.submitter as HTMLElement).textContent : '';
+      consentDialog.open = false;
+      consentForm.removeEventListener('submit', handler);
+
+      if (value?.includes('Got it')) {
+        const available = await isStorageAvailable();
+        if (!available) {
+          showToast("Storage isn't available — face memory disabled.");
+          resolve(false);
+          return;
+        }
+        setConsent(true);
+        resolve(true);
+      } else {
+        setConsent(false);
+        resolve(false);
+      }
+    };
+
+    consentForm.addEventListener('submit', handler);
+  });
+}
+
 async function init() {
   await initTheme();
 
@@ -113,17 +146,37 @@ async function init() {
     const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
     const mode = getCurrentMode();
 
-    // Always load camera and TF
+    // Step 1: Load TF first (no camera needed)
+    advanceToStep('tf', 'active');
+    await (window as any).tf.ready();
+    advanceToStep('tf', 'done');
+
+    // Step 2: Show app shell and handle consent BEFORE camera
+    app.style.display = '';
+    loadingScreen.classList.add('fade-out');
+    setTimeout(() => loadingScreen.remove(), 600);
+
+    if (!hasConsent()) {
+      const consented = await waitForConsentDialog();
+      if (consented) {
+        const modelUrl = import.meta.env.BASE_URL + 'models';
+        try {
+          await loadFaceModels(modelUrl);
+          faceModelsLoaded = true;
+          await rebuildMatcher();
+        } catch {}
+      }
+    } else {
+      // Consent already given
+    }
+
+    // Step 3: Now start camera (after consent is resolved)
     advanceToStep('camera', 'active');
     await startCamera(videoEl);
     setupCanvases(videoEl);
     advanceToStep('camera', 'done');
 
-    advanceToStep('tf', 'active');
-    await (window as any).tf.ready();
-    advanceToStep('tf', 'done');
-
-    // Load only what current mode needs
+    // Step 4: Load mode-specific models
     if (mode === 'objects' || mode === 'both') {
       advanceToStep('objects', 'active');
       await loadDetector();
@@ -133,7 +186,7 @@ async function init() {
       advanceToStep('objects', 'done');
     }
 
-    if ((mode === 'faces' || mode === 'both') && hasConsent()) {
+    if ((mode === 'faces' || mode === 'both') && hasConsent() && !faceModelsLoaded) {
       advanceToStep('faces', 'active');
       const modelUrl = import.meta.env.BASE_URL + 'models';
       await loadFaceModels(modelUrl);
@@ -143,10 +196,6 @@ async function init() {
     } else {
       advanceToStep('faces', 'done');
     }
-
-    app.style.display = '';
-    loadingScreen.classList.add('fade-out');
-    setTimeout(() => loadingScreen.remove(), 600);
 
     initUI();
     startDetectionLoops();
@@ -284,13 +333,9 @@ function initUI() {
     (document.getElementById('consent-dialog') as any).open = true;
   });
 
-  // === Consent dialog ===
+  // === Consent dialog — for re-enabling face memory via chip ===
   const consentDialog = document.getElementById('consent-dialog') as any;
   const consentForm = document.getElementById('consent-form')!;
-
-  if (!hasConsent()) {
-    consentDialog.open = true;
-  }
 
   consentForm.addEventListener('submit', async (e: Event) => {
     const formEvent = e as SubmitEvent;
