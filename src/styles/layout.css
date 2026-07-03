@@ -723,38 +723,132 @@
 .md3-nav-rail__item.active { color: var(--md-sys-color-on-surface); }
 
 /* ============================================================
-   Consent Dialog — centered, wider than text content
+   Consent Card — inline in loading screen
    ============================================================ */
 
-md-dialog#consent-dialog {
-  max-width: 560px;
-  min-width: 340px;
+.md3-consent-card {
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  padding: 32px 28px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+  transition: opacity 300ms var(--spring-effects-default), transform 400ms var(--spring-spatial-default);
 }
 
-md-dialog#consent-dialog::part(dialog) {
-  padding: 24px 32px 16px;
+.md3-consent-card--visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
-md-dialog#consent-dialog [slot="headline"] {
+.md3-consent-card__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.md3-consent-card__icon .material-symbols-outlined {
+  font-size: 28px;
+}
+
+.md3-consent-card__title {
   font: 500 1.375rem/1.75rem 'Roboto Flex', 'Roboto', sans-serif;
-  padding: 0 0 8px;
   color: var(--md-sys-color-on-surface);
+  margin: 0 0 8px;
 }
 
-md-dialog#consent-dialog [slot="content"] {
+.md3-consent-card__desc {
   font: 400 0.875rem/1.5rem 'Roboto Flex', 'Roboto', sans-serif;
   color: var(--md-sys-color-on-surface-variant);
+  margin: 0 0 20px;
+}
+
+.md3-consent-card__features {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.md3-consent-card__feature {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 0.75rem/1rem 'Roboto Flex', 'Roboto', sans-serif;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.md3-consent-card__feature .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--md-sys-color-primary);
+}
+
+.md3-consent-card__actions {
+  display: flex;
   gap: 12px;
-  padding: 0;
+  justify-content: center;
 }
 
-md-dialog#consent-dialog [slot="actions"] {
-  padding: 16px 0 0;
+.md3-consent-card__btn {
+  border: none;
+  cursor: pointer;
+  font: 500 0.875rem/1.25rem 'Roboto Flex', 'Roboto', sans-serif;
+  border-radius: var(--md-sys-shape-corner-full);
+  padding: 10px 24px;
+  transition: background 200ms var(--spring-effects-default), transform 100ms var(--spring-spatial-fast);
 }
 
-md-dialog#add-face-dialog {
+.md3-consent-card__btn:active {
+  transform: scale(0.96);
+}
+
+.md3-consent-card__btn--decline {
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.md3-consent-card__btn--decline:hover {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.md3-consent-card__btn--accept {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.md3-consent-card__btn--accept:hover {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 92%, var(--md-sys-color-on-primary));
+}
+
+/* Consent overlay (for re-enabling from app) */
+.md3-consent-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 300ms var(--spring-effects-default);
+  padding: 24px;
+}
+
+.md3-consent-overlay--visible {
+  opacity: 1;
+}
+
+/* ============================================================
+   Add Face Dialog
   max-width: 400px;
   min-width: 300px;
 }

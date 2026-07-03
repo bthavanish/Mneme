@@ -22,7 +22,38 @@
         <span class="material-symbols-outlined md3-loading-logo" style="font-size: 56px; color: var(--md-sys-color-primary);">visibility</span>
         <h1 class="md3-loading-title">Mneme</h1>
       </div>
-      <div class="md3-loading-progress-wrap">
+
+      <!-- Consent Card — shown inline during loading if needed -->
+      <div id="consent-card" class="md3-consent-card" style="display: none;">
+        <div class="md3-consent-card__icon">
+          <span class="material-symbols-outlined">face</span>
+        </div>
+        <h2 class="md3-consent-card__title">Remember faces?</h2>
+        <p class="md3-consent-card__desc">
+          Mneme can recognize people you've saved. Face data stays as a math fingerprint inside your browser — no photos, no servers, no tracking. You can delete everything anytime.
+        </p>
+        <div class="md3-consent-card__features">
+          <div class="md3-consent-card__feature">
+            <span class="material-symbols-outlined">phonelink_lock</span>
+            <span>100% on-device</span>
+          </div>
+          <div class="md3-consent-card__feature">
+            <span class="material-symbols-outlined">delete_sweep</span>
+            <span>Delete anytime</span>
+          </div>
+          <div class="md3-consent-card__feature">
+            <span class="material-symbols-outlined">wifi_off</span>
+            <span>No network needed</span>
+          </div>
+        </div>
+        <div class="md3-consent-card__actions">
+          <button id="consent-decline" class="md3-consent-card__btn md3-consent-card__btn--decline" type="button">Skip for now</button>
+          <button id="consent-accept" class="md3-consent-card__btn md3-consent-card__btn--accept" type="button">Enable face memory</button>
+        </div>
+      </div>
+
+      <!-- Progress — shown while loading (hidden during consent) -->
+      <div id="loading-progress-section" class="md3-loading-progress-wrap">
         <div class="md3-loading-progress-bar">
           <div id="loading-progress-fill" class="md3-loading-progress-fill"></div>
         </div>
@@ -32,21 +63,21 @@
         </div>
       </div>
       <div id="loading-steps" class="md3-loading-steps">
-        <div class="md3-loading-step" data-step="camera">
-          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">videocam</span></div>
-          <span>Camera</span>
-        </div>
         <div class="md3-loading-step" data-step="tf">
           <div class="md3-loading-step-icon"><span class="material-symbols-outlined">memory</span></div>
           <span>TensorFlow.js</span>
         </div>
-        <div class="md3-loading-step" data-step="objects">
-          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">category</span></div>
-          <span>Object detector</span>
-        </div>
         <div class="md3-loading-step" data-step="faces">
           <div class="md3-loading-step-icon"><span class="material-symbols-outlined">face</span></div>
           <span>Face models</span>
+        </div>
+        <div class="md3-loading-step" data-step="camera">
+          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">videocam</span></div>
+          <span>Camera</span>
+        </div>
+        <div class="md3-loading-step" data-step="objects">
+          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">category</span></div>
+          <span>Object detector</span>
         </div>
       </div>
     </div>
@@ -182,19 +213,6 @@
 
   <!-- Scrim -->
   <div id="scrim" class="md3-scrim" aria-hidden="true"></div>
-
-  <!-- Consent Dialog -->
-  <md-dialog id="consent-dialog">
-    <div slot="headline">Your face data stays on your device</div>
-    <form slot="content" id="consent-form" method="dialog">
-      <p>When you save a face, the app stores a small math fingerprint of it in your browser's local storage. 128 numbers that describe what makes that face unique.</p>
-      <p>No photos leave your device. No servers are involved. You can delete everything from the sidebar at any time.</p>
-    </form>
-    <div slot="actions">
-      <md-text-button form="consent-form" value="decline">Decline</md-text-button>
-      <md-filled-button form="consent-form" value="accept">Got it, let's go</md-filled-button>
-    </div>
-  </md-dialog>
 
   <!-- Add Face Dialog -->
   <md-dialog id="add-face-dialog">

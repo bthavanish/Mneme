@@ -104,35 +104,143 @@ function updateProgress(step: string, state: 'active' | 'done' | 'error', pct: n
   if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
 }
 
-function waitForConsentDialog(): Promise<boolean> {
+function waitForConsent(): Promise<boolean> {
   return new Promise((resolve) => {
-    const consentDialog = document.getElementById('consent-dialog') as any;
-    const consentForm = document.getElementById('consent-form')!;
+    const consentCard = document.getElementById('consent-card')!;
+    const progressSection = document.getElementById('loading-progress-section')!;
+    const stepsSection = document.getElementById('loading-steps')!;
 
-    consentDialog.open = true;
+    // Hide progress, show consent card
+    progressSection.style.display = 'none';
+    stepsSection.style.display = 'none';
+    consentCard.style.display = '';
 
-    const handler = async (e: Event) => {
-      const formEvent = e as SubmitEvent;
-      const value = formEvent.submitter ? (formEvent.submitter as HTMLElement).textContent : '';
-      consentDialog.open = false;
-      consentForm.removeEventListener('submit', handler);
+    // Small delay for animation
+    requestAnimationFrame(() => {
+      consentCard.classList.add('md3-consent-card--visible');
+    });
 
-      if (value?.includes('Got it')) {
-        const available = await isStorageAvailable();
-        if (!available) {
-          showToast("Storage isn't available — face memory disabled.");
-          resolve(false);
-          return;
-        }
-        setConsent(true);
-        resolve(true);
-      } else {
-        setConsent(false);
-        resolve(false);
-      }
+    const btnAccept = document.getElementById('consent-accept')!;
+    const btnDecline = document.getElementById('consent-decline')!;
+
+    const cleanup = () => {
+      btnAccept.removeEventListener('click', onAccept);
+      btnDecline.removeEventListener('click', onDecline);
     };
 
-    consentForm.addEventListener('submit', handler);
+    const onAccept = async () => {
+      cleanup();
+      const available = await isStorageAvailable();
+      if (!available) {
+        consentCard.classList.remove('md3-consent-card--visible');
+        setTimeout(() => {
+          consentCard.style.display = 'none';
+          progressSection.style.display = '';
+          stepsSection.style.display = '';
+        }, 300);
+        showToast("Storage unavailable — face memory disabled");
+        resolve(false);
+        return;
+      }
+      setConsent(true);
+      consentCard.classList.remove('md3-consent-card--visible');
+      setTimeout(() => {
+        consentCard.style.display = 'none';
+        progressSection.style.display = '';
+        stepsSection.style.display = '';
+      }, 300);
+      resolve(true);
+    };
+
+    const onDecline = () => {
+      cleanup();
+      setConsent(false);
+      consentCard.classList.remove('md3-consent-card--visible');
+      setTimeout(() => {
+        consentCard.style.display = 'none';
+        progressSection.style.display = '';
+        stepsSection.style.display = '';
+      }, 300);
+      resolve(false);
+    };
+
+    btnAccept.addEventListener('click', onAccept);
+    btnDecline.addEventListener('click', onDecline);
+  });
+}
+
+async function showConsentCard(): Promise<void> {
+  return new Promise((resolve) => {
+    const consentCard = document.getElementById('consent-card')!;
+    const loadingScreen = document.getElementById('loading-screen');
+
+    // Create a temporary overlay if loading screen is gone
+    let overlay: HTMLDivElement | null = null;
+    if (!loadingScreen || loadingScreen.classList.contains('fade-out')) {
+      overlay = document.createElement('div');
+      overlay.className = 'md3-consent-overlay';
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay!.classList.add('md3-consent-overlay--visible'));
+    }
+
+    // Show consent card
+    consentCard.style.display = '';
+    consentCard.classList.add('md3-consent-card--visible');
+
+    const btnAccept = document.getElementById('consent-accept')!;
+    const btnDecline = document.getElementById('consent-decline')!;
+
+    const hideCard = () => {
+      consentCard.classList.remove('md3-consent-card--visible');
+      setTimeout(() => {
+        consentCard.style.display = 'none';
+        if (overlay) {
+          overlay.classList.remove('md3-consent-overlay--visible');
+          setTimeout(() => overlay?.remove(), 300);
+        }
+      }, 300);
+    };
+
+    const cleanup = () => {
+      btnAccept.removeEventListener('click', onAccept);
+      btnDecline.removeEventListener('click', onDecline);
+    };
+
+    const onAccept = async () => {
+      cleanup();
+      hideCard();
+      const available = await isStorageAvailable();
+      if (!available) {
+        showToast("Storage unavailable — face memory disabled");
+        resolve();
+        return;
+      }
+      setConsent(true);
+      const mode = getCurrentMode();
+      if ((mode === 'faces' || mode === 'both') && !faceModelsLoaded) {
+        try {
+          const modelUrl = import.meta.env.BASE_URL + 'models';
+          await loadFaceModels(modelUrl);
+          faceModelsLoaded = true;
+          await rebuildMatcher();
+        } catch {}
+      }
+      await rebuildMatcher();
+      showToast('Face memory enabled');
+      updateModeUI(getCurrentMode());
+      resolve();
+    };
+
+    const onDecline = () => {
+      cleanup();
+      hideCard();
+      setConsent(false);
+      updateModeUI(getCurrentMode());
+      resolve();
+    };
+
+    btnAccept.addEventListener('click', onAccept);
+    btnDecline.addEventListener('click', onDecline);
   });
 }
 
@@ -158,19 +266,16 @@ async function init() {
     const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
     const mode = getCurrentMode();
 
-    // Step 1: Load TF first (no camera needed)
+    // Step 1: Load TensorFlow.js
     advanceToStep('tf', 'active');
     await (window as any).tf.ready();
     advanceToStep('tf', 'done');
 
-    // Step 2: Show app shell and handle consent BEFORE camera
-    app.style.display = '';
-    loadingScreen.classList.add('fade-out');
-    setTimeout(() => loadingScreen.remove(), 600);
-
+    // Step 2: Consent — shown inline in loading screen if not yet given
     if (!hasConsent()) {
-      const consented = await waitForConsentDialog();
+      const consented = await waitForConsent();
       if (consented) {
+        advanceToStep('faces', 'active');
         const modelUrl = import.meta.env.BASE_URL + 'models';
         try {
           await loadFaceModels(modelUrl);
@@ -179,9 +284,13 @@ async function init() {
         } catch (err: any) {
           console.warn('[mneme] face model load failed:', err.message);
         }
+        advanceToStep('faces', 'done');
+      } else {
+        advanceToStep('faces', 'done');
       }
     } else {
-      // Consent already given — load face models now
+      // Already consented — load face models
+      advanceToStep('faces', 'active');
       const modelUrl = import.meta.env.BASE_URL + 'models';
       try {
         await loadFaceModels(modelUrl);
@@ -190,15 +299,16 @@ async function init() {
       } catch (err: any) {
         console.warn('[mneme] face model load failed:', err.message);
       }
+      advanceToStep('faces', 'done');
     }
 
-    // Step 3: Now start camera (after consent is resolved)
+    // Step 3: Start camera
     advanceToStep('camera', 'active');
     await startCamera(videoEl);
     setupCanvases(videoEl);
     advanceToStep('camera', 'done');
 
-    // Step 4: Load mode-specific models
+    // Step 4: Load object detection model
     if (mode === 'objects' || mode === 'both') {
       advanceToStep('objects', 'active');
       await loadDetector();
@@ -208,20 +318,13 @@ async function init() {
       advanceToStep('objects', 'done');
     }
 
-    if ((mode === 'faces' || mode === 'both') && hasConsent() && !faceModelsLoaded) {
-      advanceToStep('faces', 'active');
-      const modelUrl = import.meta.env.BASE_URL + 'models';
-      await loadFaceModels(modelUrl);
-      faceModelsLoaded = true;
-      advanceToStep('faces', 'done');
-      await rebuildMatcher();
-    } else {
-      advanceToStep('faces', 'done');
-    }
+    // Step 5: Show app, dismiss loading screen
+    app.style.display = '';
+    loadingScreen.classList.add('fade-out');
+    setTimeout(() => loadingScreen.remove(), 600);
 
     initUI();
     startDetectionLoops();
-    // Prefetch about page manifest (non-blocking)
     prefetchManifest();
   } catch (err: any) {
     app.style.display = '';
@@ -357,43 +460,7 @@ function initUI() {
   document.getElementById('btn-add-face')?.addEventListener('click', () => handleAddFace());
 
   // === Face memory off chip ===
-  document.getElementById('face-off-chip')?.addEventListener('click', () => {
-    (document.getElementById('consent-dialog') as any).open = true;
-  });
-
-  // === Consent dialog — for re-enabling face memory via chip ===
-  const consentDialog = document.getElementById('consent-dialog') as any;
-  const consentForm = document.getElementById('consent-form')!;
-
-  consentForm.addEventListener('submit', async (e: Event) => {
-    const formEvent = e as SubmitEvent;
-    const value = formEvent.submitter ? (formEvent.submitter as HTMLElement).textContent : '';
-    consentDialog.open = false;
-
-    if (value?.includes('Got it')) {
-      const available = await isStorageAvailable();
-      if (!available) {
-        showToast("Storage isn't available — face memory disabled.");
-        return;
-      }
-      setConsent(true);
-      // Load face models if needed and not loaded
-      const mode = getCurrentMode();
-      if ((mode === 'faces' || mode === 'both') && !faceModelsLoaded) {
-        try {
-          const modelUrl = import.meta.env.BASE_URL + 'models';
-          await loadFaceModels(modelUrl);
-          faceModelsLoaded = true;
-        } catch {}
-      }
-      await rebuildMatcher();
-      showToast('Face memory enabled');
-      updateModeUI(getCurrentMode());
-    } else {
-      setConsent(false);
-      updateModeUI(getCurrentMode());
-    }
-  });
+  document.getElementById('face-off-chip')?.addEventListener('click', () => showConsentCard());
 
   // === Camera switch ===
   document.getElementById('btn-switch-camera')?.addEventListener('click', async () => {
