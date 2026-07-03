@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vision</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..900&display=swap" media="print" onload="this.media='all'">
+  <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest/dist/coco-ssd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+  <script defer type="module" src="https://cdn.jsdelivr.net/npm/@material/web@2/all.min.js"></script>
+</head>
+<body>
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+      <span class="material-symbols-outlined loading-icon" style="font-size: 64px; color: var(--md-sys-color-primary);">visibility</span>
+      <h1 class="loading-title">Vision</h1>
+      <md-linear-progress indeterminate></md-linear-progress>
+      <p id="loading-status" class="loading-status">Starting up...</p>
+    </div>
+  </div>
+
+  <div id="app" class="app-shell" style="display: none;">
+    <header class="top-bar">
+      <h1 class="top-bar-title">Vision</h1>
+      <div class="top-bar-actions">
+        <md-icon-button id="btn-settings" aria-label="Settings">
+          <md-icon>settings</md-icon>
+        </md-icon-button>
+        <md-icon-button id="btn-theme" aria-label="Toggle theme">
+          <md-icon>dark_mode</md-icon>
+        </md-icon-button>
+      </div>
+    </header>
+
+    <nav class="nav-rail" aria-label="Detection mode">
+      <div class="nav-rail-items">
+        <button class="nav-rail-item active" data-mode="objects" aria-label="Object detection">
+          <span class="nav-rail-indicator"></span>
+          <span class="material-symbols-outlined">category</span>
+          <span class="nav-rail-label">Objects</span>
+        </button>
+        <button class="nav-rail-item" data-mode="faces" aria-label="Face recognition">
+          <span class="nav-rail-indicator"></span>
+          <span class="material-symbols-outlined">face</span>
+          <span class="nav-rail-label">Faces</span>
+        </button>
+        <button class="nav-rail-item" data-mode="both" aria-label="Both modes">
+          <span class="nav-rail-indicator"></span>
+          <span class="material-symbols-outlined">visibility</span>
+          <span class="nav-rail-label">Both</span>
+        </button>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="camera-container">
+        <video id="video-feed" autoplay playsinline muted aria-label="Camera feed" role="img"></video>
+        <canvas id="overlay-objects" class="overlay"></canvas>
+        <canvas id="overlay-faces" class="overlay"></canvas>
+        <div id="camera-error" class="camera-error" style="display: none;">
+          <span class="material-symbols-outlined" style="font-size: 48px;">videocam_off</span>
+          <h2>Camera access needed</h2>
+          <p>Allow camera access in your browser settings to use Vision.</p>
+        </div>
+      </div>
+
+      <div id="face-chip-area" class="face-chip-area" style="display: none;">
+        <md-assist-chip label="Face memory off" id="face-off-chip">
+          <md-icon slot="icon">face</md-icon>
+        </md-assist-chip>
+      </div>
+
+      <md-fab id="btn-add-face" size="medium" label="Add face" aria-label="Add face to library" style="display: none;">
+        <md-icon slot="icon">person_add</md-icon>
+      </md-fab>
+    </main>
+
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h2 class="sidebar-title">Face library</h2>
+        <md-icon-button id="btn-close-sidebar" aria-label="Close sidebar">
+          <md-icon>close</md-icon>
+        </md-icon-button>
+      </div>
+      <md-list id="face-list" class="face-list"></md-list>
+      <div id="sidebar-empty" class="sidebar-empty">
+        <span class="material-symbols-outlined" style="font-size: 48px; color: var(--md-sys-color-outline);">person_add</span>
+        <p>No faces saved yet</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Consent dialog -->
+  <md-dialog id="consent-dialog">
+    <div slot="headline">Your face data stays on your device</div>
+    <form slot="content" id="consent-form" method="dialog">
+      <p>When you save a face, the app stores a small math fingerprint of it in your browser's local storage. 128 numbers that describe what makes that face unique.</p>
+      <p>No photos leave your device. No servers are involved. You can delete everything from the sidebar at any time.</p>
+    </form>
+    <div slot="actions">
+      <md-text-button form="consent-form" value="decline">Decline</md-text-button>
+      <md-filled-button form="consent-form" value="accept">Got it, let's go</md-filled-button>
+    </div>
+  </md-dialog>
+
+  <!-- Add face dialog -->
+  <md-dialog id="add-face-dialog">
+    <div slot="headline">Name this face</div>
+    <form slot="content" id="add-face-form" method="dialog">
+      <md-outlined-text-field label="What's their name?" id="face-name-input" maxlength="50" autofocus required></md-outlined-text-field>
+    </form>
+    <div slot="actions">
+      <md-text-button form="add-face-form" value="cancel">Cancel</md-text-button>
+      <md-filled-button form="add-face-form" value="save">Save</md-filled-button>
+    </div>
+  </md-dialog>
+
+  <!-- Settings side sheet -->
+  <div id="settings-sheet" class="settings-sheet" style="display: none;">
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <md-icon-button id="btn-close-settings" aria-label="Close settings">
+        <md-icon>close</md-icon>
+      </md-icon-button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-row">
+        <label for="show-confidence">Show confidence scores</label>
+        <md-switch id="show-confidence" selected></md-switch>
+      </div>
+      <div class="settings-row">
+        <label for="mirror-video">Mirror camera</label>
+        <md-switch id="mirror-video"></md-switch>
+      </div>
+      <div class="settings-row">
+        <label for="detect-threshold">Detection threshold: <span id="detect-threshold-val">0.5</span></label>
+        <md-slider id="detect-threshold" min="0.3" max="0.9" step="0.05" value="0.5"></md-slider>
+      </div>
+      <div class="settings-row">
+        <label for="face-threshold">Face match distance: <span id="face-threshold-val">0.5</span></label>
+        <md-slider id="face-threshold" min="0.3" max="0.7" step="0.05" value="0.5"></md-slider>
+      </div>
+      <div class="settings-row">
+        <label for="theme-switch">Dark mode</label>
+        <md-switch id="theme-switch"></md-switch>
+      </div>
+      <div class="settings-row" style="margin-top: 24px;">
+        <md-filled-tonal-button id="btn-delete-all-faces" style="color: var(--md-sys-color-error);">Delete all face data</md-filled-tonal-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
