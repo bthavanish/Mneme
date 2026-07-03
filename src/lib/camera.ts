@@ -1,12 +1,15 @@
 let stream: MediaStream | null = null;
 
-export async function startCamera(videoEl: HTMLVideoElement): Promise<void> {
+export async function startCamera(
+  videoEl: HTMLVideoElement,
+  facingMode: 'user' | 'environment' = 'user'
+): Promise<void> {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        facingMode: 'user',
+        facingMode,
       },
     });
     videoEl.srcObject = stream;
