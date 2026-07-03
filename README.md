@@ -1,5 +1,7 @@
 # Mneme
 
+<img width="1920" height="1012" alt="Screenshot_20260703_214701_Chrome" src="https://github.com/user-attachments/assets/fdfa94fb-5915-4536-aecd-4d842204795d" />
+
 Point your camera at things. Get labeled boxes around objects, or recognize faces you have saved. Everything runs in your browser, nothing leaves your device.
 
 ## What it does
@@ -13,6 +15,11 @@ You pick which mode to run: objects only, faces only, or both.
 
 ## Getting started
 
+### Use the website https://bthavanish.github.io/Mneme/
+ 
+ **(or)**
+
+ ### Manual method
 **Requirements:** Node.js 18+, a camera, and a modern browser (Chrome, Firefox, Safari, Edge).
 
 ```bash
