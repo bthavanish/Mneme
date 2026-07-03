@@ -6,3 +6,4 @@ dist/
 *.tsbuildinfo
 skills-lock.json
 .agents/
+agent/
