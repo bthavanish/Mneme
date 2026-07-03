@@ -1,8 +1,14 @@
 import type { AppMode } from '../types';
 
-const STORAGE_KEY = 'vision_mode';
+const STORAGE_KEY = 'mneme_mode';
+const validModes: AppMode[] = ['objects', 'faces', 'both'];
 
-let currentMode: AppMode = (localStorage.getItem(STORAGE_KEY) as AppMode) || 'objects';
+function getStoredMode(): AppMode {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return validModes.includes(raw as AppMode) ? (raw as AppMode) : 'objects';
+}
+
+let currentMode: AppMode = getStoredMode();
 let onModeChange: ((mode: AppMode) => void) | null = null;
 
 export function initModeToggle(callback: (mode: AppMode) => void): void {

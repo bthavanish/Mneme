@@ -3,9 +3,9 @@ import './styles/layout.css';
 import './styles/animations.css';
 
 import { startCamera } from './lib/camera';
-import { loadDetector, detectObjects, getInterval as getObjectInterval } from './lib/detector';
-import { loadFaceModels, detectFaces, rebuildMatcher, getFaceInterval } from './lib/faceEngine';
-import { saveFace, clearAllFaces } from './lib/faceStore';
+import { loadDetector, detectObjects, getObjectDetectionInterval } from './lib/detector';
+import { loadFaceModels, detectFaces, rebuildMatcher, getFaceInterval, getFaceApi } from './lib/faceEngine';
+import { saveFace, clearAllFaces, isStorageAvailable } from './lib/faceStore';
 import { hasConsent, setConsent } from './lib/consent';
 import { setupCanvases, drawObjectBoxes, drawFaceBoxes, clearCanvas } from './ui/canvas';
 import { initSidebar, renderFaceList } from './ui/sidebar';
@@ -13,8 +13,6 @@ import { showToast } from './ui/toast';
 import { initModeToggle, getCurrentMode } from './ui/modeToggle';
 
 import type { SavedFace, AppMode, Settings } from './types';
-
-const faceapi = (window as any).faceapi;
 
 let settings: Settings = loadSettings();
 let objectBusy = false;
@@ -75,11 +73,14 @@ async function init() {
     initUI();
     startDetectionLoops();
   } catch (err: any) {
-    updateStatus(err.message || 'Something went wrong');
-    showToast(err.message || 'Failed to start');
+    // show app shell even on camera failure so user isnt stuck on loading screen
+    app.style.display = '';
+    loadingScreen.classList.add('fade-out');
+    setTimeout(() => loadingScreen.remove(), 400);
 
     const errorEl = document.getElementById('camera-error')!;
     if (errorEl) errorEl.style.display = 'flex';
+    console.warn('[mneme] startup error:', err.message);
   }
 }
 
@@ -98,9 +99,16 @@ function initUI() {
   const settingsSheet = document.getElementById('settings-sheet')!;
   const btnSettings = document.getElementById('btn-settings')!;
   const btnCloseSettings = document.getElementById('btn-close-settings')!;
+  const scrim = document.getElementById('scrim')!;
 
-  btnSettings.addEventListener('click', () => settingsSheet.classList.toggle('open'));
-  btnCloseSettings.addEventListener('click', () => settingsSheet.classList.remove('open'));
+  btnSettings.addEventListener('click', () => {
+    settingsSheet.classList.toggle('open');
+    scrim.classList.toggle('visible', settingsSheet.classList.contains('open'));
+  });
+  btnCloseSettings.addEventListener('click', () => {
+    settingsSheet.classList.remove('open');
+    scrim.classList.remove('visible');
+  });
 
   // Theme toggle
   const btnTheme = document.getElementById('btn-theme')!;
@@ -108,7 +116,23 @@ function initUI() {
     settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
     applyTheme();
     saveSettings();
-    showToast(`Switched to ${settings.theme} mode`);
+    showToast(`Switched to ${settings.theme}`);
+  });
+
+  // Theme switch in settings
+  const themeSwitch = document.getElementById('theme-switch') as any;
+  themeSwitch.selected = settings.theme === 'dark' ||
+    (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  themeSwitch.addEventListener('change', () => {
+    settings.theme = themeSwitch.selected ? 'dark' : 'light';
+    applyTheme();
+    saveSettings();
+  });
+
+  // Listen for system preference changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (settings.theme === 'system') applyTheme();
   });
 
   // Settings controls
@@ -138,13 +162,13 @@ function initUI() {
   });
 
   detectSlider.addEventListener('input', () => {
-    settings.detectThreshold = detectSlider.value;
+    settings.detectThreshold = parseFloat(detectSlider.value);
     detectVal.textContent = String(detectSlider.value);
     saveSettings();
   });
 
   faceSlider.addEventListener('input', () => {
-    settings.faceThreshold = faceSlider.value;
+    settings.faceThreshold = parseFloat(faceSlider.value);
     faceVal.textContent = String(faceSlider.value);
     saveSettings();
   });
@@ -162,6 +186,11 @@ function initUI() {
   const btnAddFace = document.getElementById('btn-add-face')!;
   btnAddFace.addEventListener('click', () => handleAddFace());
 
+  // Face memory off chip re-enables consent
+  document.getElementById('face-off-chip')?.addEventListener('click', () => {
+    (document.getElementById('consent-dialog') as any).open = true;
+  });
+
   // Consent dialog
   const consentDialog = document.getElementById('consent-dialog') as any;
   const consentForm = document.getElementById('consent-form')!;
@@ -176,6 +205,11 @@ function initUI() {
     consentDialog.open = false;
 
     if (value?.includes('Got it')) {
+      const available = await isStorageAvailable();
+      if (!available) {
+        showToast("Storage isn't available — face memory disabled.");
+        return;
+      }
       setConsent(true);
       await rebuildMatcher();
       showToast('Face memory enabled');
@@ -189,29 +223,37 @@ function initUI() {
 }
 
 function applyTheme(): void {
-  if (settings.theme === 'dark') {
-    document.documentElement.classList.add('theme-dark');
-  } else if (settings.theme === 'light') {
-    document.documentElement.classList.remove('theme-dark');
-  }
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const useDark =
+    settings.theme === 'dark' ||
+    (settings.theme === 'system' && prefersDark);
+
+  document.documentElement.classList.toggle('theme-dark', useDark);
+
+  const icon = document.querySelector('#btn-theme md-icon');
+  if (icon) icon.textContent = useDark ? 'light_mode' : 'dark_mode';
 }
 
 function updateModeUI(mode: AppMode): void {
   const btnAddFace = document.getElementById('btn-add-face')!;
   const faceChipArea = document.getElementById('face-chip-area')!;
+  const btnFaceLibrary = document.getElementById('btn-face-library')!;
   const consentGiven = hasConsent();
 
   if (mode === 'faces' || mode === 'both') {
     if (!consentGiven) {
       faceChipArea.style.display = 'flex';
       btnAddFace.style.display = 'none';
+      btnFaceLibrary.style.display = 'none';
     } else {
       faceChipArea.style.display = 'none';
       btnAddFace.style.display = '';
+      btnFaceLibrary.style.display = '';
     }
   } else {
     faceChipArea.style.display = 'none';
     btnAddFace.style.display = 'none';
+    btnFaceLibrary.style.display = 'none';
   }
 }
 
@@ -225,6 +267,7 @@ async function handleAddFace() {
   const addFaceDialog = document.getElementById('add-face-dialog') as any;
   const nameInput = document.getElementById('face-name-input') as HTMLInputElement;
   const addFaceForm = document.getElementById('add-face-form')!;
+  const api = getFaceApi();
 
   const offscreen = document.createElement('canvas');
   offscreen.width = videoEl.videoWidth || 1280;
@@ -232,10 +275,19 @@ async function handleAddFace() {
   const offCtx = offscreen.getContext('2d')!;
   offCtx.drawImage(videoEl, 0, 0);
 
-  showToast('Looking for a face...');
+  // check for multiple faces first
+  const allDetections = await api
+    .detectAllFaces(offscreen, new api.TinyFaceDetectorOptions())
+    .withFaceLandmarks();
 
-  const detection = await faceapi
-    .detectSingleFace(offscreen, new faceapi.TinyFaceDetectorOptions())
+  if (allDetections.length > 1) {
+    showToast('Multiple faces in frame. Try adding one at a time.');
+    return;
+  }
+
+  // get single face with descriptor
+  const detection = await api
+    .detectSingleFace(offscreen, new api.TinyFaceDetectorOptions())
     .withFaceLandmarks()
     .withFaceDescriptor();
 
@@ -300,9 +352,6 @@ async function handleAddFace() {
   addFaceForm.addEventListener('submit', handleFormSubmit);
 }
 
-// two independent setTimeout loops. no rAF, no shared frame budget.
-// object detection runs on its own timer, face detection on its own.
-// if one is slow the other keeps going.
 function startDetectionLoops() {
   const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
 
@@ -311,12 +360,12 @@ function startDetectionLoops() {
     if ((mode === 'objects' || mode === 'both') && !objectBusy) {
       objectBusy = true;
       detectObjects(videoEl, settings.detectThreshold).then((detections) => {
-        drawObjectBoxes('overlay-objects', detections);
+        drawObjectBoxes('overlay-objects', detections, settings.showConfidence);
         objectBusy = false;
       });
     }
     if (mode === 'faces') clearCanvas('overlay-objects');
-    setTimeout(objectLoop, getObjectInterval());
+    setTimeout(objectLoop, getObjectDetectionInterval());
   }
 
   function faceLoop() {

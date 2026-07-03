@@ -1,4 +1,4 @@
-const CONSENT_KEY = 'vision_consent_given';
+const CONSENT_KEY = 'mneme_consent_given';
 
 export function hasConsent(): boolean {
   return localStorage.getItem(CONSENT_KEY) === 'true';
