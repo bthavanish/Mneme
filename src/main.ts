@@ -38,29 +38,38 @@ function saveSettings(): void {
 
 async function init() {
   const loadingScreen = document.getElementById('loading-screen')!;
-  const loadingStatus = document.getElementById('loading-status')!;
   const app = document.getElementById('app')!;
+  const steps = document.querySelectorAll('.loading-step');
 
-  const updateStatus = (msg: string) => {
-    loadingStatus.textContent = msg;
-  };
+  function markStep(name: string, state: 'active' | 'done' | 'error') {
+    steps.forEach((el) => {
+      const step = el as HTMLElement;
+      if (step.dataset.step === name) {
+        step.classList.remove('active', 'done', 'error');
+        step.classList.add(state);
+      }
+    });
+  }
 
   try {
-    updateStatus('Starting camera...');
+    markStep('camera', 'active');
     const videoEl = document.getElementById('video-feed') as HTMLVideoElement;
     await startCamera(videoEl);
-
     setupCanvases(videoEl);
+    markStep('camera', 'done');
 
-    updateStatus('Loading TensorFlow.js...');
+    markStep('tf', 'active');
     await (window as any).tf.ready();
+    markStep('tf', 'done');
 
-    updateStatus('Loading object detector...');
+    markStep('objects', 'active');
     await loadDetector();
+    markStep('objects', 'done');
 
-    updateStatus('Loading face models...');
+    markStep('faces', 'active');
     const modelUrl = import.meta.env.BASE_URL + 'models';
     await loadFaceModels(modelUrl);
+    markStep('faces', 'done');
 
     if (hasConsent()) {
       await rebuildMatcher();
@@ -73,7 +82,6 @@ async function init() {
     initUI();
     startDetectionLoops();
   } catch (err: any) {
-    // show app shell even on camera failure so user isnt stuck on loading screen
     app.style.display = '';
     loadingScreen.classList.add('fade-out');
     setTimeout(() => loadingScreen.remove(), 400);

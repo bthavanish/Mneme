@@ -512,6 +512,68 @@
   margin: 0;
 }
 
+.loading-steps {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.loading-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--md-sys-color-outline);
+  transition: color 300ms ease;
+}
+
+.loading-step.active {
+  color: var(--md-sys-color-primary);
+}
+
+.loading-step.done {
+  color: var(--md-sys-color-tertiary);
+}
+
+.loading-step.error {
+  color: var(--md-sys-color-error);
+}
+
+.loading-step-icon {
+  font-size: 28px !important;
+  transition: transform 300ms ease;
+}
+
+.loading-step.active .loading-step-icon {
+  animation: pulse-scale 1200ms ease infinite;
+}
+
+.loading-step.done .loading-step-icon::after {
+  content: 'check_circle';
+  font-family: 'Material Symbols Outlined';
+  position: absolute;
+  font-size: 16px;
+  bottom: -2px;
+  right: -4px;
+  color: var(--md-sys-color-tertiary);
+}
+
+.loading-step .material-symbols-outlined {
+  position: relative;
+}
+
+.settings-row.column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.settings-row.column label {
+  margin-bottom: 0;
+}
+
 md-linear-progress {
   width: 200px;
 }

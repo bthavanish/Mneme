@@ -21,16 +21,15 @@ export async function detectObjects(
   busy = true;
 
   try {
-    return (window as any).tf.tidy(() => {
-      const predictions = model.detect(videoEl);
-      return predictions
-        .filter((p: any) => p.score >= threshold)
-        .map((p: any) => ({
-          bbox: p.bbox as [number, number, number, number],
-          class: p.class as string,
-          score: p.score as number,
-        }));
-    });
+    // model.detect() is async - do NOT wrap in tf.tidy()
+    const predictions = await model.detect(videoEl);
+    return predictions
+      .filter((p: any) => p.score >= threshold)
+      .map((p: any) => ({
+        bbox: p.bbox as [number, number, number, number],
+        class: p.class as string,
+        score: p.score as number,
+      }));
   } finally {
     busy = false;
   }
