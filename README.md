@@ -1,4 +1,4 @@
-# Vision
+# Mneme
 
 Point your camera at things. Get labeled boxes around objects, or recognize faces you have saved. Everything runs in your browser, nothing leaves your device.
 
@@ -43,7 +43,7 @@ Output goes to `dist/`. Deploy it anywhere static files are served.
 
 All ML runs in the browser via TensorFlow.js (WebGL backend). No server, no API keys, no accounts.
 
-**Object detection** loads COCO-SSD with MobileNet v2 as the base model. Weights come from TensorFlow Hub automatically. Detection runs at 12fps on desktop, 8fps on mobile.
+**Object detection** loads COCO-SSD with MobileNet v2 as the base model. On mobile it uses lite_mobilenet_v2 to save GPU time. Weights come from TensorFlow Hub automatically. Detection runs at 12fps on desktop, 8fps on mobile.
 
 **Face recognition** uses vladmandic/face-api (a maintained fork of face-api.js). The TinyFaceDetector runs at 5fps desktop, 3fps mobile. Face descriptors are 128-dimensional vectors compared with Euclidean distance. The threshold is configurable (default 0.5).
 
@@ -69,6 +69,7 @@ src/
   lib/
     camera.ts        getUserMedia wrapper
     detector.ts      COCO-SSD wrapper with throttled loop
+    device.ts        shared mobile/desktop detection
     faceEngine.ts    face-api detection and matching
     faceStore.ts     IndexedDB read/write for face descriptors
     consent.ts       localStorage consent gate
@@ -80,7 +81,7 @@ src/
   styles/
     tokens.css       MD3 color, shape, elevation, motion tokens
     layout.css       app shell, nav rail, camera overlay, sidebar
-    animations.css   keyframes for toast and skeleton
+    animations.css   keyframes for toast, skeleton, nav indicator
   main.ts            entry point, bootstraps everything
   types.ts           shared TypeScript types
 public/
@@ -91,7 +92,7 @@ public/
 
 - Vite + vanilla TypeScript
 - TensorFlow.js (WebGL backend)
-- COCO-SSD (MobileNet v2)
+- COCO-SSD (MobileNet v2 / lite_mobilenet_v2)
 - vladmandic/face-api
 - Material Web Components for interactive elements
 - MD3 design tokens via CSS custom properties
