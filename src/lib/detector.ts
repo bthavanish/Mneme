@@ -54,13 +54,14 @@ export function deleteStoredDetector(modelKey: DetectorModel): Promise<void> {
 
 export async function detectObjects(
   videoEl: HTMLVideoElement,
-  threshold: number
+  threshold: number,
+  maxDetections = 20,
 ): Promise<Detection[]> {
   if (!model || !videoEl || videoEl.readyState < 2) return [];
   try {
     // Let COCO-SSD apply the confidence cutoff during non-max suppression;
     // filtering only after inference wastes work on low-confidence boxes.
-    const predictions = await model.detect(videoEl, 20, threshold);
+    const predictions = await model.detect(videoEl, maxDetections, threshold);
     return predictions
       .filter((p: any) => p.score >= threshold)
       .map((p: any) => ({
@@ -79,5 +80,5 @@ export async function detectObjects(
 }
 
 export async function detectImageObjects(image: HTMLImageElement | HTMLCanvasElement, threshold = 0.35): Promise<Detection[]> {
-  return detectObjects(image as unknown as HTMLVideoElement, threshold);
+  return detectObjects(image as unknown as HTMLVideoElement, threshold, 20);
 }

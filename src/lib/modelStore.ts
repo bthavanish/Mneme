@@ -90,6 +90,11 @@ export async function isModelStored(id: string): Promise<boolean> {
   });
 }
 
+export async function hasValidModelFile(id: string, minimumBytes: number): Promise<boolean> {
+  const data = await loadModelFile(id);
+  return data !== null && data.byteLength >= minimumBytes;
+}
+
 export async function getModelBlobUrl(id: string): Promise<string | null> {
   const data = await loadModelFile(id);
   if (!data) return null;
@@ -189,7 +194,10 @@ export async function downloadModelFile(
   onProgress?: (p: DownloadProgress) => void
 ): Promise<void> {
   const startTime = performance.now();
-  const response = await fetch(url);
+  // Use the original fetch when the persistent model interceptor is installed.
+  // This prevents a stale intercepted response from being copied back into a
+  // repaired local model record.
+  const response = await (nativeFetch ? nativeFetch(url) : fetch(url));
   if (!response.ok) throw new Error(`Download failed: ${response.status}`);
 
   const contentLength = parseInt(response.headers.get('content-length') || '0', 10);

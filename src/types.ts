@@ -48,6 +48,7 @@ export interface DrawOpts {
 }
 
 export type DetectorModel = 'auto' | 'lite' | 'standard' | 'accurate';
+export type PerformanceMode = 'battery' | 'balanced' | 'responsive';
 
 export const DETECTOR_MODELS: Record<DetectorModel, { label: string; base: string; desc: string; perf: 'fast' | 'balanced' | 'accurate' }> = {
   auto:     { label: 'Auto (Recommended)',      base: 'lite_mobilenet_v2', desc: 'Chooses the fastest suitable local model for this device', perf: 'balanced' },
@@ -62,6 +63,8 @@ export interface Settings {
   detectThreshold: number;
   faceThreshold: number;
   detectorModel: DetectorModel;
+  maxDetections: number;
+  performanceMode: PerformanceMode;
 }
 
 export interface MemorySample {

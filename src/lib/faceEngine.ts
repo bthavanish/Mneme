@@ -10,7 +10,7 @@
 import type { FaceDetectionBox, FaceDetectionResult } from '../types';
 import { getDeviceProfile } from './deviceProfile';
 import { loadFaces } from './faceStore';
-import { loadModelFile, isModelStored, registerStoredModelManifest } from './modelStore';
+import { loadModelFile, hasValidModelFile } from './modelStore';
 import { getAllMemoryItems } from './memoryStore';
 
 let faceapi: any = null;
@@ -20,13 +20,13 @@ let descriptorCallCount = 0;
 const DESCRIPTOR_INTERVAL = 2;
 
 // face-api.js model file IDs (stored in IndexedDB)
-export const FACE_MODEL_IDS = [
-  'tiny_face_detector_model-weights_manifest.json',
-  'tiny_face_detector_model.bin',
-  'face_landmark_68_tiny_model-weights_manifest.json',
-  'face_landmark_68_tiny_model.bin',
-  'face_recognition_model-weights_manifest.json',
-  'face_recognition_model.bin',
+export const FACE_MODEL_FILES = [
+  { id: 'tiny_face_detector_model-weights_manifest.json', minimumBytes: 1000 },
+  { id: 'tiny_face_detector_model.bin', minimumBytes: 100000 },
+  { id: 'face_landmark_68_tiny_model-weights_manifest.json', minimumBytes: 1000 },
+  { id: 'face_landmark_68_tiny_model.bin', minimumBytes: 50000 },
+  { id: 'face_recognition_model-weights_manifest.json', minimumBytes: 1000 },
+  { id: 'face_recognition_model.bin', minimumBytes: 1000000 },
 ];
 
 export function getFaceApi(): any {
@@ -35,8 +35,8 @@ export function getFaceApi(): any {
 }
 
 export async function areFaceModelsStored(): Promise<boolean> {
-  for (const id of FACE_MODEL_IDS) {
-    if (!(await isModelStored(id))) return false;
+  for (const file of FACE_MODEL_FILES) {
+    if (!(await hasValidModelFile(file.id, file.minimumBytes))) return false;
   }
   return true;
 }
@@ -44,14 +44,19 @@ export async function areFaceModelsStored(): Promise<boolean> {
 export async function loadFaceModels(): Promise<void> {
   const api = getFaceApi();
 
-  // Face-api expects a real base URI for resolving the manifest's shard path.
-  // Register the IndexedDB files on a local virtual fetch route for that load.
+  // Load bytes directly from IndexedDB. This deliberately avoids loadFromUri:
+  // face-api may retain an internal fetch implementation that bypasses the
+  // app's fetch cache and then fails in restrictive browser/network setups.
   const loadFromStore = async (name: string, manifestName: string, shardName: string) => {
     const [manifestData, shardData] = await Promise.all([loadModelFile(manifestName), loadModelFile(shardName)]);
     if (!manifestData || !shardData) throw new Error(`${manifestName} is incomplete in local storage`);
-    const local = registerStoredModelManifest(manifestData, shardData);
-    try { await api.nets[name].loadFromUri(local.uri); }
-    finally { local.dispose(); }
+    const tf = api.tf || (window as any).tf;
+    const factory = tf?.io?.weightsLoaderFactory;
+    if (!factory) throw new Error('TensorFlow weight loader is unavailable');
+    const manifest = JSON.parse(new TextDecoder().decode(manifestData));
+    const loadWeights = factory(async () => [shardData]);
+    const weightMap = await loadWeights(manifest, '');
+    api.nets[name].loadFromWeightMap(weightMap);
   };
 
   await loadFromStore('tinyFaceDetector', 'tiny_face_detector_model-weights_manifest.json', 'tiny_face_detector_model.bin');

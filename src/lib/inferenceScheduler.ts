@@ -48,6 +48,11 @@ export class InferenceScheduler {
     this.enabledModes = { objects, faces };
   }
 
+  setIntervals(objectIntervalMs: number, faceIntervalMs: number): void {
+    this.tasks.object.targetIntervalMs = objectIntervalMs;
+    this.tasks.face.targetIntervalMs = faceIntervalMs;
+  }
+
   pause(): void { this.paused = true; }
   resume(): void { this.paused = false; }
   getGeneration(kind: TaskKind): number { return this.tasks[kind].generation; }

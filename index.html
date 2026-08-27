@@ -338,14 +338,40 @@
         <input type="range" id="face-threshold" min="0.3" max="0.8" step="0.05" value="0.6" class="slider">
       </div>
       <hr class="settings-divider">
+      <h3 class="settings-section-title">Detection controls</h3>
+      <div class="settings-row column">
+        <label for="max-detections">Maximum boxes per frame: <span id="max-detections-val">10</span></label>
+        <input type="range" id="max-detections" min="1" max="20" step="1" value="10" class="slider">
+      </div>
+      <div class="settings-row column">
+        <label for="performance-mode">Inference speed</label>
+        <select id="performance-mode" class="settings-select">
+          <option value="battery">Battery saver</option>
+          <option value="balanced">Balanced</option>
+          <option value="responsive">Responsive</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <button id="btn-clear-log" class="btn-text">Clear detection history</button>
+        <button id="btn-reindex-samples" class="btn-text">Reindex samples</button>
+      </div>
+      <hr class="settings-divider">
       <h3 class="settings-section-title">Object Detection Model</h3>
       <div id="model-list" class="model-list"></div>
       <hr class="settings-divider">
+      <h3 class="settings-section-title">Local data</h3>
+      <p id="storage-status" class="settings-help">Checking local storage…</p>
       <div class="settings-row">
         <button id="btn-delete-all-faces" class="btn-filled btn-error">Delete all face data</button>
       </div>
       <div class="settings-row">
+        <button id="btn-delete-all-memory" class="btn-filled btn-error">Delete all saved samples</button>
+      </div>
+      <div class="settings-row">
         <button id="btn-delete-all-models" class="btn-filled btn-error">Delete all downloaded models</button>
+      </div>
+      <div class="settings-row">
+        <button id="btn-reset-settings" class="btn-text">Reset settings to defaults</button>
       </div>
     </div>
   </div>

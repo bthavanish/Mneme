@@ -19,13 +19,13 @@ import { hasConsent, setConsent, hasDownloadedModels, setDownloadedModels } from
 import { setupCanvases, drawObjectBoxes, drawFaceBoxes, setMirror, clearCanvas } from './ui/canvas';
 import { showToast } from './ui/toast';
 import { initTabToggle, getCurrentTab } from './ui/modeToggle';
-import { initDetectionLog, addObjectDetections, addFaceDetections } from './ui/detectionLog';
+import { initDetectionLog, addObjectDetections, addFaceDetections, clearLog } from './ui/detectionLog';
 import { getDeviceProfile, logDeviceProfile } from './lib/deviceProfile';
 import { InferenceScheduler } from './lib/inferenceScheduler';
-import { saveMemoryItem, getAllMemoryItems, deleteMemoryItem } from './lib/memoryStore';
-import { downloadModelFile, isModelStored, clearAllModels, installModelFetchCache, setModelDownloadProgressListener } from './lib/modelStore';
+import { saveMemoryItem, getAllMemoryItems, deleteMemoryItem, clearAllMemory } from './lib/memoryStore';
+import { downloadModelFile, hasValidModelFile, deleteModelFile, clearAllModels, installModelFetchCache, setModelDownloadProgressListener } from './lib/modelStore';
 
-import type { AppTab, Settings, SavedFace, MemoryItem, MemorySample, DetectorModel } from './types';
+import type { AppTab, Settings, SavedFace, MemoryItem, MemorySample, DetectorModel, PerformanceMode } from './types';
 import { DETECTOR_MODELS } from './types';
 
 let settings: Settings = loadSettings();
@@ -42,6 +42,8 @@ let faceEnabled = false;
 let cameraEnabled = true;
 let lastFaceNames: string[] = [];
 let savedObjectLabels = new Map<string, string>();
+let savedObjectSampleCount = 0;
+let samplePreparationRunning = false;
 
 function loadSettings(): Settings {
   return {
@@ -50,6 +52,8 @@ function loadSettings(): Settings {
     detectThreshold: parseFloat(localStorage.getItem('detect_threshold') || '0.5'),
     faceThreshold: parseFloat(localStorage.getItem('face_threshold') || '0.6'),
     detectorModel: (localStorage.getItem('detector_model') as DetectorModel) || 'auto',
+    maxDetections: parseInt(localStorage.getItem('max_detections') || '10', 10),
+    performanceMode: (localStorage.getItem('performance_mode') as PerformanceMode) || 'balanced',
   };
 }
 
@@ -59,16 +63,28 @@ function saveSettings(): void {
   localStorage.setItem('detect_threshold', String(settings.detectThreshold));
   localStorage.setItem('face_threshold', String(settings.faceThreshold));
   localStorage.setItem('detector_model', settings.detectorModel);
+  localStorage.setItem('max_detections', String(settings.maxDetections));
+  localStorage.setItem('performance_mode', settings.performanceMode);
+}
+
+function applyPerformanceMode(): void {
+  const profile = getDeviceProfile();
+  const scale: Record<PerformanceMode, number> = { battery: 1.7, balanced: 1, responsive: 0.65 };
+  const multiplier = scale[settings.performanceMode];
+  scheduler?.setIntervals(Math.round(profile.objectIntervalMs * multiplier), Math.round(profile.faceIntervalMs * multiplier));
 }
 
 async function refreshSavedObjectLabels(): Promise<void> {
   const items = await getAllMemoryItems();
   const labels = new Map<string, string>();
+  let sampleCount = 0;
   for (const item of items) {
     if (item.type !== 'object' || !item.enabled) continue;
+    sampleCount += item.samples.length;
     for (const sample of item.samples) for (const label of sample.labels || []) labels.set(label, item.name);
   }
   savedObjectLabels = labels;
+  savedObjectSampleCount = sampleCount;
 }
 
 /** Index older object samples once so Sample mode also works for memories saved before label support. */
@@ -112,7 +128,7 @@ async function indexSavedPersonSamples(): Promise<void> {
         const img = new Image();
         img.src = imageUrl;
         await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(new Error('Could not read saved person sample')); });
-        const detection = await api.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        const detection = await api.detectSingleFace(img, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 })).withFaceLandmarks().withFaceDescriptor();
         // An empty array marks a processed image without a clear face, avoiding
         // repeated expensive attempts until the user replaces that sample.
         sample.embedding = detection ? Array.from(detection.descriptor) : [];
@@ -134,6 +150,32 @@ async function hasSavedSamples(): Promise<boolean> {
   return (await getAllMemoryItems()).some(item => item.enabled && item.samples.length > 0);
 }
 
+async function prepareSampleMode(): Promise<void> {
+  samplePreparationRunning = true;
+  try {
+    if (!(await hasSavedSamples())) {
+      showToast('Sample mode is on — add a person or object in Memory');
+      return;
+    }
+    const faceReady = await ensureFaceRecognitionReady();
+    await Promise.all([indexSavedObjectSamples(), faceReady ? indexSavedPersonSamples() : Promise.resolve()]);
+    if (!faceEnabled) return;
+    updateScheduler();
+    if (faceReady || savedObjectLabels.size > 0) {
+      showToast('Saved samples are ready for detection');
+    } else if (savedObjectSampleCount > 0) {
+      showToast('Object sample saved, but it has no detectable COCO class yet');
+    } else {
+      showToast('No recognizable object or clear face found in saved samples');
+    }
+  } catch (error) {
+    console.error('[mneme] sample preparation failed:', error);
+    showToast(`Sample preparation failed: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    samplePreparationRunning = false;
+  }
+}
+
 async function ensureFaceRecognitionReady(): Promise<boolean> {
   if (!hasConsent()) return false;
   if (faceModelsLoaded) return true;
@@ -153,7 +195,9 @@ async function ensureFaceRecognitionReady(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('[mneme] saved face model could not be loaded:', error);
-    showToast('Face model recovery failed — check the connection once');
+    const message = error instanceof Error ? error.message : String(error);
+    logLine(`face recovery FAILED: ${message}`, 'err');
+    showToast(`Face model recovery failed: ${message}`);
     return false;
   }
 }
@@ -173,6 +217,17 @@ const progressSize = document.getElementById('progress-size')!;
 let loadStartTime = 0;
 let stepCount = 4;
 let completedSteps = 0;
+
+loadingLogEl.title = 'Click to copy verbose log';
+loadingLogEl.tabIndex = 0;
+const copyVerboseLog = async () => {
+  const text = loadingLogEl.innerText;
+  if (!text) return;
+  try { await navigator.clipboard.writeText(text); showToast('Verbose log copied'); }
+  catch { loadingLogEl.focus(); }
+};
+loadingLogEl.addEventListener('click', () => void copyVerboseLog());
+loadingLogEl.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void copyVerboseLog(); } });
 
 function logLine(text: string, cls?: string): void {
   const line = document.createElement('div');
@@ -274,16 +329,20 @@ function waitForFaceConsent(): Promise<boolean> {
 
 // face-api.js model files to download from CDN
 const FACE_MODEL_FILES = [
-  { id: 'tiny_face_detector_model-weights_manifest.json', file: 'tiny_face_detector_model-weights_manifest.json', type: 'application/json' },
-  { id: 'tiny_face_detector_model.bin', file: 'tiny_face_detector_model.bin', type: 'application/octet-stream' },
-  { id: 'face_landmark_68_tiny_model-weights_manifest.json', file: 'face_landmark_68_tiny_model-weights_manifest.json', type: 'application/json' },
-  { id: 'face_landmark_68_tiny_model.bin', file: 'face_landmark_68_tiny_model.bin', type: 'application/octet-stream' },
-  { id: 'face_recognition_model-weights_manifest.json', file: 'face_recognition_model-weights_manifest.json', type: 'application/json' },
-  { id: 'face_recognition_model.bin', file: 'face_recognition_model.bin', type: 'application/octet-stream' },
+  { id: 'tiny_face_detector_model-weights_manifest.json', file: 'tiny_face_detector_model-weights_manifest.json', type: 'application/json', minimumBytes: 1000 },
+  { id: 'tiny_face_detector_model.bin', file: 'tiny_face_detector_model.bin', type: 'application/octet-stream', minimumBytes: 100000 },
+  { id: 'face_landmark_68_tiny_model-weights_manifest.json', file: 'face_landmark_68_tiny_model-weights_manifest.json', type: 'application/json', minimumBytes: 1000 },
+  { id: 'face_landmark_68_tiny_model.bin', file: 'face_landmark_68_tiny_model.bin', type: 'application/octet-stream', minimumBytes: 50000 },
+  { id: 'face_recognition_model-weights_manifest.json', file: 'face_recognition_model-weights_manifest.json', type: 'application/json', minimumBytes: 1000 },
+  { id: 'face_recognition_model.bin', file: 'face_recognition_model.bin', type: 'application/octet-stream', minimumBytes: 1000000 },
 ];
 
 function faceModelUrls(file: string): string[] {
+  const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
   return [
+    // These versioned assets ship with the app. This is the normal path and
+    // keeps face recognition usable when the browser blocks third-party CDNs.
+    new URL(`models/${file}`, appBaseUrl).toString(),
     `https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/${file}`,
     `https://unpkg.com/@vladmandic/face-api@1.7.12/model/${file}`,
   ];
@@ -293,8 +352,9 @@ async function downloadFaceModels(): Promise<void> {
   showProgress(true);
   for (let i = 0; i < FACE_MODEL_FILES.length; i++) {
     const f = FACE_MODEL_FILES[i];
-    if (await isModelStored(f.id)) { logLine(`face: ${f.id} (cached)`, 'ok'); continue; }
-    logLine(`face: downloading ${f.id}...`);
+    if (await hasValidModelFile(f.id, f.minimumBytes)) { logLine(`face: ${f.id} (cached)`, 'ok'); continue; }
+    await deleteModelFile(f.id); // discard stale files from the earlier broken downloader
+    logLine(`face: loading ${f.id} from local app files...`);
     setLoadingStatus(`Downloading face model (${i + 1}/${FACE_MODEL_FILES.length})...`);
     let lastError: unknown;
     for (const url of faceModelUrls(f.file)) {
@@ -308,6 +368,7 @@ async function downloadFaceModels(): Promise<void> {
       } catch (error) {
         lastError = error;
         console.warn(`[mneme] face model fetch failed from ${url}`, error);
+        logLine(`face: source failed (${new URL(url).host || 'local'}): ${error instanceof Error ? error.message : String(error)}`, 'err');
       }
     }
     if (lastError) throw new Error(`${f.id}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
@@ -450,6 +511,9 @@ function initUI() {
   const faceSlider = document.getElementById('face-threshold') as HTMLInputElement;
   const detectVal = document.getElementById('detect-threshold-val')!;
   const faceVal = document.getElementById('face-threshold-val')!;
+  const maxDetections = document.getElementById('max-detections') as HTMLInputElement;
+  const maxDetectionsVal = document.getElementById('max-detections-val')!;
+  const performanceMode = document.getElementById('performance-mode') as HTMLSelectElement;
 
   showConfidenceToggle.checked = settings.showConfidence;
   mirrorToggle.checked = settings.mirrorVideo;
@@ -457,14 +521,25 @@ function initUI() {
   faceSlider.value = String(settings.faceThreshold);
   detectVal.textContent = String(settings.detectThreshold);
   faceVal.textContent = String(settings.faceThreshold);
+  maxDetections.value = String(settings.maxDetections);
+  maxDetectionsVal.textContent = String(settings.maxDetections);
+  performanceMode.value = settings.performanceMode;
 
   showConfidenceToggle.addEventListener('change', () => { settings.showConfidence = showConfidenceToggle.checked; saveSettings(); });
   mirrorToggle.addEventListener('change', () => { settings.mirrorVideo = mirrorToggle.checked; saveSettings(); applyMirror(); });
   detectSlider.addEventListener('input', () => { settings.detectThreshold = parseFloat(detectSlider.value); detectVal.textContent = detectSlider.value; saveSettings(); });
   faceSlider.addEventListener('input', () => { settings.faceThreshold = parseFloat(faceSlider.value); faceVal.textContent = faceSlider.value; saveSettings(); rebuildMatcher(settings.faceThreshold); });
+  maxDetections.addEventListener('input', () => { settings.maxDetections = parseInt(maxDetections.value, 10); maxDetectionsVal.textContent = maxDetections.value; saveSettings(); });
+  performanceMode.addEventListener('change', () => { settings.performanceMode = performanceMode.value as PerformanceMode; saveSettings(); applyPerformanceMode(); showToast(`${performanceMode.options[performanceMode.selectedIndex].text} enabled`); });
 
   document.getElementById('btn-delete-all-faces')?.addEventListener('click', async () => { await clearAllFaces(); await rebuildMatcher(); showToast('All face data deleted'); });
   document.getElementById('btn-delete-all-models')?.addEventListener('click', async () => { await clearAllModels(); setDownloadedModels(false); showToast('All models deleted'); });
+  document.getElementById('btn-delete-all-memory')?.addEventListener('click', async () => { await clearAllMemory(); await clearAllFaces(); savedObjectLabels.clear(); savedObjectSampleCount = 0; await rebuildMatcher(); renderMemoryPage(); updateScheduler(); showToast('All saved samples deleted'); });
+  document.getElementById('btn-clear-log')?.addEventListener('click', () => { clearLog(); showToast('Detection history cleared'); });
+  document.getElementById('btn-reindex-samples')?.addEventListener('click', () => { if (!samplePreparationRunning) void prepareSampleMode(); showToast('Reindexing saved samples…'); });
+  document.getElementById('btn-reset-settings')?.addEventListener('click', () => { ['show_confidence', 'mirror_video', 'detect_threshold', 'face_threshold', 'max_detections', 'performance_mode'].forEach(key => localStorage.removeItem(key)); window.location.reload(); });
+  const storageStatus = document.getElementById('storage-status')!;
+  void navigator.storage?.estimate?.().then(estimate => { storageStatus.textContent = `${estimate.usage ? `${(estimate.usage / 1048576).toFixed(1)} MB used` : 'Local storage in use'}${estimate.quota ? ` of ${(estimate.quota / 1048576).toFixed(0)} MB available` : ''}. Models and samples stay on this device.`; }).catch(() => { storageStatus.textContent = 'Models and samples stay on this device.'; });
 
   // camera switch
   document.getElementById('btn-switch-camera')?.addEventListener('click', async () => {
@@ -484,25 +559,21 @@ function initUI() {
     showToast(generalEnabled ? 'General detection on' : 'General detection off');
   });
 
-  // Sample mode recognizes saved people and saved COCO object classes.
-  document.getElementById('btn-toggle-face')?.addEventListener('click', async () => {
+  // Turn on immediately; model/sample indexing is deliberately background work
+  // so the control never looks like a dead button on slower devices.
+  document.getElementById('btn-toggle-face')?.addEventListener('click', () => {
+    faceEnabled = !faceEnabled;
     if (!faceEnabled) {
-      await ensureFaceRecognitionReady();
-      await Promise.all([indexSavedObjectSamples(), indexSavedPersonSamples()]);
-    }
-    if (!faceEnabled && !(await hasSavedSamples())) {
-      showToast('Add a person or object in Memory first');
+      updateModelButtons();
+      updateScheduler();
+      showToast('Sample detection off');
       return;
     }
-    faceEnabled = !faceEnabled;
-    if (faceEnabled) generalEnabled = false;
+    generalEnabled = false;
     updateModelButtons();
     updateScheduler();
-    if (faceEnabled && !faceModelsLoaded && savedObjectLabels.size === 0) {
-      showToast('Sample mode is on, but no clear face was found in the saved photos');
-    } else {
-      showToast(faceEnabled ? 'Sample detection on' : 'Sample detection off');
-    }
+    showToast('Sample detection on — preparing saved samples…');
+    if (!samplePreparationRunning) void prepareSampleMode();
   });
 
   // Camera toggle
@@ -559,7 +630,7 @@ function updateScheduler(): void {
     clearCanvas('overlay-objects');
     clearCanvas('overlay-faces');
   } else {
-    scheduler.setEnabledModes((generalEnabled || (faceEnabled && savedObjectLabels.size > 0)) && objectModelLoaded, faceEnabled && hasConsent() && faceModelsLoaded);
+    scheduler.setEnabledModes((generalEnabled || (faceEnabled && savedObjectSampleCount > 0)) && objectModelLoaded, faceEnabled && hasConsent() && faceModelsLoaded);
     scheduler.resume();
   }
 }
@@ -698,8 +769,8 @@ function startDetection() {
 
   scheduler.setCallbacks(
     async (gen: number) => {
-      if (paused || getCurrentTab() !== 'detect' || !objectModelLoaded || (!generalEnabled && (!faceEnabled || savedObjectLabels.size === 0))) return;
-      const detections = await detectObjects(videoEl, settings.detectThreshold);
+      if (paused || getCurrentTab() !== 'detect' || !objectModelLoaded || (!generalEnabled && (!faceEnabled || savedObjectSampleCount === 0))) return;
+      const detections = await detectObjects(videoEl, settings.detectThreshold, settings.maxDetections);
       if (scheduler!.getGeneration('object') !== gen || getCurrentTab() !== 'detect') return;
       if (generalEnabled) {
         drawObjectBoxes('overlay-objects', detections, settings.showConfidence);
@@ -722,7 +793,8 @@ function startDetection() {
     }
   );
 
-  scheduler.setEnabledModes((generalEnabled || (faceEnabled && savedObjectLabels.size > 0)) && objectModelLoaded, faceEnabled && hasConsent() && faceModelsLoaded);
+  scheduler.setEnabledModes((generalEnabled || (faceEnabled && savedObjectSampleCount > 0)) && objectModelLoaded, faceEnabled && hasConsent() && faceModelsLoaded);
+  applyPerformanceMode();
   scheduler.start();
 }
 
@@ -867,7 +939,7 @@ function showNameDialog(): void {
           const imageUrl = URL.createObjectURL(capturedBlobs[index]);
           img.src = imageUrl;
           await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(new Error('Could not read sample image')); });
-          const detection = await api.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+          const detection = await api.detectSingleFace(img, new api.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 })).withFaceLandmarks().withFaceDescriptor();
           URL.revokeObjectURL(imageUrl);
           if (!detection) continue;
 

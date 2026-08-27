@@ -24,8 +24,6 @@ const entries: LogEntry[] = [];
 const recentLabels = new Map<string, number>();
 let listEl: HTMLElement | null = null;
 let emptyEl: HTMLElement | null = null;
-let isVisible = true;
-let observer: IntersectionObserver | null = null;
 let entryCounter = 0;
 let videoEl: HTMLVideoElement | null = null;
 
@@ -35,15 +33,10 @@ export function initDetectionLog(vEl: HTMLVideoElement): void {
   emptyEl = document.getElementById('detection-log-empty');
   if (!listEl) return;
 
-  observer = new IntersectionObserver(
-    ([entry]) => { isVisible = entry.isIntersecting; },
-    { threshold: 0 }
-  );
-  observer.observe(listEl);
 }
 
 export function addObjectDetections(detections: Detection[]): void {
-  if (!isVisible || !listEl || !emptyEl || detections.length === 0) return;
+  if (!listEl || !emptyEl || detections.length === 0) return;
   for (const d of detections) {
     if (isDuplicate(d.class)) continue;
     const thumb = cropDetectionThumb(d.bbox);
@@ -52,7 +45,7 @@ export function addObjectDetections(detections: Detection[]): void {
 }
 
 export function addFaceDetections(names: string[]): void {
-  if (!isVisible || !listEl || !emptyEl || names.length === 0) return;
+  if (!listEl || !emptyEl || names.length === 0) return;
   for (const name of names) {
     if (name === 'Unknown' || name === '') continue;
     if (isDuplicate(name)) continue;
