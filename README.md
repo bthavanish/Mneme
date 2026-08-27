@@ -1,6 +1,7 @@
 # Mneme  Pattern Detection with Computer Vision
 
-<img width="1920" alt="Mneme camera detection interface" src="https://github.com/user-attachments/assets/fdfa94fb-5915-4536-aecd-4d842204795d" />
+<img width="1920" alt="Mneme camera detection interface" src="https://github.com/user-attachments/assets/88229a21-de7a-4284-8f6d-d61fac9dea12" />
+
 
 Mneme is my school project about pattern detection using computer vision. It turns a normal phone or laptop camera into a small local AI detector: it can spot common objects, draw boxes around them, and try to recognise people or objects that you save as samples.
 
