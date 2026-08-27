@@ -1,3 +1,8 @@
+<!--
+  Mneme - local camera memory
+  License: Apache 2.0
+  github.com/bthavanish/Mneme
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,307 +10,361 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Mneme</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --bg: #2b2d31; --bg-surface: #3c3f45; --bg-muted: #4a4d53;
+      --text: #d7d1c6; --text-secondary: #9a9590; --text-on-dark: #2b2d31;
+      --border: #4a4d53; --border-light: #4a4d53;
+      --error: #e74c3c; --success: #2ecc71;
+      --font: 'Roboto Flex', -apple-system, sans-serif;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-full: 9999px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); overflow: hidden; height: 100dvh; }
+    .loading-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .loading-content { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 24px; width: 100%; max-width: 400px; }
+    .loading-title { font: 600 1.8rem/1 var(--font); color: var(--text); }
+    .loading-spinner { width: 28px; height: 28px; border: 2.5px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-status { text-align: center; width: 100%; }
+    .loading-status__text { font: 400 0.85rem/1.4 var(--font); color: var(--text); display: block; }
+    .loading-status__eta { font: 400 0.75rem/1 var(--font); color: var(--text-secondary); }
+    .progress-bar { width: 100%; height: 4px; background: var(--bg-muted); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+    .progress-bar__fill { height: 100%; background: var(--text); border-radius: 2px; transition: width 0.2s; }
+    .progress-info { display: flex; justify-content: space-between; width: 100%; margin-top: 4px; }
+    .progress-info span { font: 400 0.7rem/1 var(--font); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+    .loading-log { width: 100%; max-height: 140px; overflow-y: auto; padding: 10px; border-radius: var(--radius-sm); background: var(--bg-muted); font: 400 0.65rem/1.5 'Courier New', monospace; color: var(--text-secondary); text-align: left; }
+    .loading-log__line { padding: 1px 0; white-space: pre-wrap; word-break: break-all; }
+    .loading-log__line--ok { color: var(--success); }
+    .loading-log__line--err { color: var(--error); }
+    .loading-screen.fade-out { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .consent-card { background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; }
+    .consent-card__icon { width: 48px; height: 48px; border-radius: var(--radius-full); background: var(--bg-muted); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 24px; }
+    .consent-card__title { font: 500 1.2rem/1.4 var(--font); margin: 0 0 8px; }
+    .consent-card__desc { font: 400 0.85rem/1.5 var(--font); color: var(--text-secondary); margin: 0 0 16px; }
+    .consent-card__size { font: 500 0.8rem/1 var(--font); color: var(--text); margin-bottom: 20px; }
+    .consent-card__actions { display: flex; gap: 10px; justify-content: center; }
+    .consent-btn { border: none; cursor: pointer; font: 500 0.85rem/1 var(--font); border-radius: var(--radius-full); padding: 10px 24px; }
+    .consent-btn--decline { background: var(--bg-muted); color: var(--text-secondary); }
+    .consent-btn--accept { background: var(--text); color: var(--text-on-dark); }
+  </style>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..900&display=swap">
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest/dist/coco-ssd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 </head>
 <body>
   <!-- Loading Screen -->
-  <div id="loading-screen" class="md3-loading-screen">
-    <div class="md3-loading-content">
-      <div class="md3-loading-brand">
-        <span class="material-symbols-outlined md3-loading-logo" style="font-size: 56px; color: var(--md-sys-color-primary);">visibility</span>
-        <h1 class="md3-loading-title">Mneme</h1>
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+      <h1 class="loading-title">Mneme</h1>
+
+      <!-- Download Consent -->
+      <div id="download-consent" class="consent-card" style="display: none;">
+        <div class="consent-card__icon">
+          <span class="material-symbols-outlined">download</span>
+        </div>
+        <h2 class="consent-card__title">Download AI models?</h2>
+        <p class="consent-card__desc">
+          Mneme needs to download machine learning models (~5MB) to run face and object detection locally in your browser. Nothing leaves your device after download.
+        </p>
+        <div class="consent-card__size">~5MB download</div>
+        <div class="consent-card__actions">
+          <button id="consent-decline" class="consent-btn consent-btn--decline" type="button">Decline</button>
+          <button id="consent-accept" class="consent-btn consent-btn--accept" type="button">Download</button>
+        </div>
       </div>
 
-      <!-- Consent Card — shown inline during loading if needed -->
-      <div id="consent-card" class="md3-consent-card" style="display: none;">
-        <div class="md3-consent-card__icon">
+      <!-- Face Consent -->
+      <div id="face-consent" class="consent-card" style="display: none;">
+        <div class="consent-card__icon">
           <span class="material-symbols-outlined">face</span>
         </div>
-        <h2 class="md3-consent-card__title">Remember faces?</h2>
-        <p class="md3-consent-card__desc">
-          Mneme can recognize people you've saved. Face data stays as a math fingerprint inside your browser — no photos, no servers, no tracking. You can delete everything anytime.
+        <h2 class="consent-card__title">Enable face memory?</h2>
+        <p class="consent-card__desc">
+          Face data stays as a math fingerprint inside your browser. Nothing leaves your device. You can delete everything anytime.
         </p>
-        <div class="md3-consent-card__features">
-          <div class="md3-consent-card__feature">
-            <span class="material-symbols-outlined">phonelink_lock</span>
-            <span>100% on-device</span>
-          </div>
-          <div class="md3-consent-card__feature">
-            <span class="material-symbols-outlined">delete_sweep</span>
-            <span>Delete anytime</span>
-          </div>
-          <div class="md3-consent-card__feature">
-            <span class="material-symbols-outlined">wifi_off</span>
-            <span>No network needed</span>
-          </div>
-        </div>
-        <div class="md3-consent-card__actions">
-          <button id="consent-decline" class="md3-consent-card__btn md3-consent-card__btn--decline" type="button">Skip for now</button>
-          <button id="consent-accept" class="md3-consent-card__btn md3-consent-card__btn--accept" type="button">Enable face memory</button>
+        <div class="consent-card__actions">
+          <button id="face-decline" class="consent-btn consent-btn--decline" type="button">Skip</button>
+          <button id="face-accept" class="consent-btn consent-btn--accept" type="button">Enable</button>
         </div>
       </div>
 
-      <!-- Progress — shown while loading (hidden during consent) -->
-      <div id="loading-progress-section" class="md3-loading-progress-wrap">
-        <div class="md3-loading-progress-bar">
-          <div id="loading-progress-fill" class="md3-loading-progress-fill"></div>
+      <!-- Loading UI -->
+      <div id="loading-ui">
+        <div class="loading-spinner"></div>
+        <div class="loading-status">
+          <span id="loading-status-text" class="loading-status__text">Initializing...</span>
+          <span id="loading-eta" class="loading-status__eta"></span>
         </div>
-        <div class="md3-loading-progress-info">
-          <span id="loading-progress-label" class="md3-loading-progress-label">Initializing...</span>
-          <span id="loading-progress-pct" class="md3-loading-progress-pct">0%</span>
+        <div id="progress-container" style="display: none; width: 100%;">
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-bar__fill" style="width: 0%"></div>
+          </div>
+          <div class="progress-info">
+            <span id="progress-percent">0%</span>
+            <span id="progress-speed"></span>
+            <span id="progress-size"></span>
+          </div>
         </div>
-      </div>
-      <div id="loading-steps" class="md3-loading-steps">
-        <div class="md3-loading-step" data-step="tf">
-          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">memory</span></div>
-          <span>TensorFlow.js</span>
-        </div>
-        <div class="md3-loading-step" data-step="faces">
-          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">face</span></div>
-          <span>Face models</span>
-        </div>
-        <div class="md3-loading-step" data-step="camera">
-          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">videocam</span></div>
-          <span>Camera</span>
-        </div>
-        <div class="md3-loading-step" data-step="objects">
-          <div class="md3-loading-step-icon"><span class="material-symbols-outlined">category</span></div>
-          <span>Object detector</span>
-        </div>
+        <div id="loading-log" class="loading-log"></div>
       </div>
     </div>
   </div>
 
   <!-- App Shell -->
-  <div id="app" class="md3-app" style="display: none;">
-
-    <!-- Top App Bar -->
-    <header class="md3-top-app-bar">
-      <h1 class="md3-top-app-bar__title">Mneme</h1>
-      <div class="md3-top-app-bar__actions">
-        <!-- Mobile logs button — visible only on mobile -->
-        <md-icon-button id="btn-logs-mobile" aria-label="Detection log" class="md3-mobile-only">
-          <md-icon>radar</md-icon>
-        </md-icon-button>
-        <md-icon-button id="btn-about" aria-label="About">
-          <md-icon>info</md-icon>
-        </md-icon-button>
-        <md-icon-button id="btn-face-library" aria-label="Face library" style="display: none;">
-          <md-icon>group</md-icon>
-        </md-icon-button>
-        <md-icon-button id="btn-settings" aria-label="Settings">
-          <md-icon>settings</md-icon>
-        </md-icon-button>
-        <md-icon-button id="btn-theme" aria-label="Toggle theme">
-          <md-icon>dark_mode</md-icon>
-        </md-icon-button>
+  <div id="app" class="app" style="display: none;">
+    <header class="top-bar">
+      <h1 class="top-bar__title">Mneme</h1>
+      <div class="top-bar__actions">
+        <button id="btn-about" class="icon-btn" aria-label="About">
+          <span class="material-symbols-outlined">info</span>
+        </button>
+        <button id="btn-settings" class="icon-btn" aria-label="Settings">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
       </div>
     </header>
-
-    <!-- Main Area -->
-    <div class="md3-main-area">
-
-      <!-- Navigation Rail — desktop/tablet only -->
-      <nav class="md3-nav-rail" aria-label="Detection mode">
-        <button class="md3-nav-rail__item active" data-mode="objects" aria-label="Object detection">
-          <span class="md3-nav-rail__indicator"></span>
-          <span class="material-symbols-outlined">category</span>
-          <span class="md3-nav-rail__label">Objects</span>
+    <div class="main-area">
+      <nav class="nav-rail" aria-label="Navigation">
+        <button class="nav-rail__item active" data-tab="detect">
+          <span class="nav-rail__indicator"></span>
+          <span class="material-symbols-outlined">radar</span>
+          <span class="nav-rail__label">Detect</span>
         </button>
-        <button class="md3-nav-rail__item" data-mode="faces" aria-label="Face recognition">
-          <span class="md3-nav-rail__indicator"></span>
-          <span class="material-symbols-outlined">face</span>
-          <span class="md3-nav-rail__label">Faces</span>
-        </button>
-        <button class="md3-nav-rail__item" data-mode="both" aria-label="Both modes">
-          <span class="md3-nav-rail__indicator"></span>
-          <span class="material-symbols-outlined">visibility</span>
-          <span class="md3-nav-rail__label">Both</span>
+        <button class="nav-rail__item" data-tab="memory">
+          <span class="nav-rail__indicator"></span>
+          <span class="material-symbols-outlined">collections_bookmark</span>
+          <span class="nav-rail__label">Memory</span>
         </button>
       </nav>
-
-      <!-- Camera Wrapper — padded box with rounded corners -->
-      <div class="md3-camera-wrapper">
-        <div class="md3-camera-box">
-          <div class="md3-camera-container">
-            <video id="video-feed" autoplay playsinline muted aria-label="Camera feed" role="img"></video>
-            <canvas id="overlay-objects" class="overlay"></canvas>
-            <canvas id="overlay-faces" class="overlay"></canvas>
-
-            <div id="camera-error" class="md3-camera-error" style="display: none;">
-              <span class="material-symbols-outlined" style="font-size: 56px; color: var(--md-sys-color-error);">videocam_off</span>
-              <h2>Camera access needed</h2>
-              <p>Allow camera access in your browser settings to use Mneme.</p>
-              <md-filled-button id="btn-retry-camera">
-                <md-icon slot="icon">refresh</md-icon>
-                Try again
-              </md-filled-button>
+      <div id="tab-detect" class="tab-content tab-content--active">
+        <div class="camera-wrapper">
+          <div class="camera-box">
+            <div class="camera-container">
+              <video id="video-feed" autoplay playsinline muted aria-label="Camera feed" role="img"></video>
+              <canvas id="overlay-objects" class="overlay"></canvas>
+              <canvas id="overlay-faces" class="overlay"></canvas>
+              <div id="camera-error" class="camera-error" style="display: none;">
+                <span class="material-symbols-outlined" style="font-size: 48px; color: var(--error);">videocam_off</span>
+                <h2>Camera access needed</h2>
+                <p>Allow camera access in your browser settings.</p>
+                <button id="btn-retry-camera" class="btn-filled">Try again</button>
+              </div>
+              <button id="btn-switch-camera" class="camera-switch" aria-label="Switch camera">
+                <span class="material-symbols-outlined">flip_camera_ios</span>
+              </button>
+              <div class="camera-controls">
+                <button id="btn-toggle-general" class="camera-control-btn active" aria-label="Toggle general detection">
+                  <span class="material-symbols-outlined">radar</span>
+                  <span class="camera-control-label">General</span>
+                </button>
+                <button id="btn-toggle-face" class="camera-control-btn" aria-label="Toggle sample detection">
+                  <span class="material-symbols-outlined">face</span>
+                  <span class="camera-control-label">Sample</span>
+                </button>
+                <button id="btn-toggle-camera" class="camera-control-btn active" aria-label="Toggle camera">
+                  <span class="material-symbols-outlined">videocam</span>
+                  <span class="camera-control-label">Cam</span>
+                </button>
+              </div>
             </div>
-
-            <!-- Camera switch button — top-right of camera box -->
-            <md-icon-button id="btn-switch-camera" class="md3-camera-switch" aria-label="Switch camera">
-              <md-icon>flip_camera_ios</md-icon>
-            </md-icon-button>
           </div>
-
-          <!-- Overlays positioned relative to camera-box -->
-          <div id="face-chip-area" class="md3-face-chip-area" style="display: none;">
-            <md-assist-chip label="Face memory off — tap to enable" id="face-off-chip">
-              <md-icon slot="icon">face</md-icon>
-            </md-assist-chip>
+        </div>
+        <aside id="detection-log-panel" class="detection-log-panel">
+          <div class="detection-log__header">
+            <h2 class="detection-log__title">Detections</h2>
           </div>
-
-          <md-fab id="btn-add-face" class="md3-fab-add-face" size="medium" label="Add face" aria-label="Add face to library" style="display: none;">
-            <md-icon slot="icon">person_add</md-icon>
-          </md-fab>
+          <div id="detection-log-list" class="detection-log__list"></div>
+          <div id="detection-log-empty" class="detection-log__empty">
+            <span class="material-symbols-outlined">radar</span>
+            <p>No detections yet</p>
+          </div>
+        </aside>
+      </div>
+      <div id="tab-memory" class="tab-content" style="display: none;">
+        <div class="memory-page">
+          <div class="memory-header">
+            <h2 class="memory-header__title">Memory</h2>
+            <button id="btn-add-memory" class="icon-btn" aria-label="Add to memory">
+              <span class="material-symbols-outlined">add</span>
+            </button>
+          </div>
+          <div class="memory-local-badge">
+            <span class="material-symbols-outlined">phonelink_lock</span>
+            <span>LOCAL ONLY — nothing leaves this device</span>
+          </div>
+          <div class="memory-section">
+            <h3 class="memory-section__title">People</h3>
+            <div id="memory-people-grid" class="memory-grid">
+              <div id="memory-people-empty" class="memory-empty"><p>No people saved yet</p></div>
+            </div>
+          </div>
+          <div class="memory-section">
+            <h3 class="memory-section__title">Objects</h3>
+            <div id="memory-objects-grid" class="memory-grid">
+              <div id="memory-objects-empty" class="memory-empty"><p>No objects saved yet</p></div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <!-- Detection Log Panel — desktop only (>=1200px) -->
-      <aside id="detection-log-panel" class="md3-detection-log-panel">
-        <div class="md3-detection-log__header">
-          <h2 class="md3-detection-log__title">Detection Log</h2>
-          <md-icon-button id="btn-close-log" aria-label="Close log">
-            <md-icon>close</md-icon>
-          </md-icon-button>
-        </div>
-        <div id="detection-log-list" class="md3-detection-log__list"></div>
-        <div id="detection-log-empty" class="md3-detection-log__empty">
-          <span class="material-symbols-outlined">radar</span>
-          <p>No detections yet</p>
-          <p style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Objects and faces will appear here</p>
-        </div>
-      </aside>
     </div>
-
-    <!-- Bottom Navigation Bar — mobile only -->
-    <nav class="md3-bottom-nav" aria-label="Detection mode">
-      <button class="md3-bottom-nav__item active" data-mode="objects" aria-label="Object detection">
-        <div class="md3-bottom-nav__icon-wrap">
-          <span class="md3-bottom-nav__indicator"></span>
-          <span class="material-symbols-outlined">category</span>
+    <nav class="bottom-nav" aria-label="Navigation">
+      <button class="bottom-nav__item active" data-tab="detect">
+        <div class="bottom-nav__icon-wrap">
+          <span class="bottom-nav__indicator"></span>
+          <span class="material-symbols-outlined">radar</span>
         </div>
-        <span class="md3-bottom-nav__label">Objects</span>
+        <span class="bottom-nav__label">Detect</span>
       </button>
-      <button class="md3-bottom-nav__item" data-mode="faces" aria-label="Face recognition">
-        <div class="md3-bottom-nav__icon-wrap">
-          <span class="md3-bottom-nav__indicator"></span>
-          <span class="material-symbols-outlined">face</span>
+      <button class="bottom-nav__item" data-tab="memory">
+        <div class="bottom-nav__icon-wrap">
+          <span class="bottom-nav__indicator"></span>
+          <span class="material-symbols-outlined">collections_bookmark</span>
         </div>
-        <span class="md3-bottom-nav__label">Faces</span>
-      </button>
-      <button class="md3-bottom-nav__item" data-mode="both" aria-label="Both modes">
-        <div class="md3-bottom-nav__icon-wrap">
-          <span class="md3-bottom-nav__indicator"></span>
-          <span class="material-symbols-outlined">visibility</span>
-        </div>
-        <span class="md3-bottom-nav__label">Both</span>
+        <span class="bottom-nav__label">Memory</span>
       </button>
     </nav>
   </div>
 
-  <!-- Scrim -->
-  <div id="scrim" class="md3-scrim" aria-hidden="true"></div>
+  <div id="scrim" class="scrim" aria-hidden="true"></div>
 
-  <!-- Add Face Dialog -->
-  <md-dialog id="add-face-dialog">
-    <div slot="headline">Name this face</div>
-    <form slot="content" id="add-face-form" method="dialog">
-      <md-outlined-text-field label="What's their name?" id="face-name-input" maxlength="50" autofocus required></md-outlined-text-field>
+  <dialog id="add-memory-dialog" class="add-memory-dialog">
+    <div class="add-memory-dialog__header">
+      <h2>Add to Memory</h2>
+      <button id="btn-close-add-memory" class="icon-btn" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="add-memory-dialog__body">
+      <button id="btn-add-person" class="memory-type-btn">
+        <span class="material-symbols-outlined">person</span>
+        <span>Person</span>
+      </button>
+      <button id="btn-add-object" class="memory-type-btn">
+        <span class="material-symbols-outlined">category</span>
+        <span>Object</span>
+      </button>
+    </div>
+  </dialog>
+
+  <div id="capture-screen" class="capture-screen" style="display: none;">
+    <div class="capture-header">
+      <button id="btn-close-capture" class="icon-btn icon-btn--white" aria-label="Close">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h2 id="capture-title" class="capture-header__title">Add Person</h2>
+      <div style="width: 48px;"></div>
+    </div>
+    <div class="capture-body">
+      <div class="capture-preview">
+        <video id="capture-video" autoplay playsinline muted></video>
+        <div id="capture-face-box" class="capture-face-box" style="display: none;"></div>
+      </div>
+    </div>
+    <div class="capture-footer">
+      <div id="capture-count" class="capture-count">0 photos</div>
+      <button id="btn-shutter" class="shutter-btn" aria-label="Take photo">
+        <div class="shutter-btn__ring"></div>
+      </button>
+      <button id="btn-done-capture" class="btn-filled" style="display: none;">Done</button>
+    </div>
+  </div>
+
+  <div id="adjuster-screen" class="adjuster-screen" style="display: none;">
+    <div class="adjuster-header">
+      <button id="btn-close-adjuster" class="icon-btn" aria-label="Close">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h2 class="adjuster-header__title">Adjust Frame</h2>
+      <button id="btn-use-crop" class="btn-filled">Use Frame</button>
+    </div>
+    <div class="adjuster-body">
+      <div class="adjuster-canvas-wrap">
+        <canvas id="adjuster-canvas"></canvas>
+        <div id="crop-handle-tl" class="crop-handle crop-handle--tl"></div>
+        <div id="crop-handle-tr" class="crop-handle crop-handle--tr"></div>
+        <div id="crop-handle-bl" class="crop-handle crop-handle--bl"></div>
+        <div id="crop-handle-br" class="crop-handle crop-handle--br"></div>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="name-dialog" class="name-dialog">
+    <div class="name-dialog__header">
+      <h2 id="name-dialog-title">Name</h2>
+    </div>
+    <form id="name-form" method="dialog">
+      <input id="name-input" type="text" class="name-input" placeholder="Enter a name" maxlength="50" required>
+      <div class="name-dialog__actions">
+        <button type="button" id="btn-cancel-name" class="btn-text">Cancel</button>
+        <button type="submit" class="btn-filled">Save</button>
+      </div>
     </form>
-    <div slot="actions">
-      <md-text-button form="add-face-form" value="cancel">Cancel</md-text-button>
-      <md-filled-button form="add-face-form" value="save">Save</md-filled-button>
-    </div>
-  </md-dialog>
+  </dialog>
 
-  <!-- Settings Sheet — NO display:none, hidden by transform -->
-  <div id="settings-sheet" class="md3-settings-sheet">
-    <div class="md3-settings-sheet__header">
+  <div id="settings-sheet" class="settings-sheet">
+    <div class="settings-sheet__header">
       <h2>Settings</h2>
-      <md-icon-button id="btn-close-settings" aria-label="Close settings">
-        <md-icon>close</md-icon>
-      </md-icon-button>
+      <button id="btn-close-settings" class="icon-btn" aria-label="Close settings">
+        <span class="material-symbols-outlined">close</span>
+      </button>
     </div>
-    <div class="md3-settings-sheet__body">
-      <div class="md3-settings-row">
+    <div class="settings-sheet__body">
+      <div class="settings-row">
         <label for="show-confidence">Show confidence scores</label>
-        <md-switch id="show-confidence" selected></md-switch>
+        <label class="switch">
+          <input type="checkbox" id="show-confidence" checked>
+          <span class="switch__track"></span>
+        </label>
       </div>
-      <div class="md3-settings-row">
+      <div class="settings-row">
         <label for="mirror-video">Mirror camera</label>
-        <md-switch id="mirror-video"></md-switch>
+        <label class="switch">
+          <input type="checkbox" id="mirror-video">
+          <span class="switch__track"></span>
+        </label>
       </div>
-      <div class="md3-settings-row column">
+      <div class="settings-row column">
         <label for="detect-threshold">Detection threshold: <span id="detect-threshold-val">0.5</span></label>
-        <md-slider id="detect-threshold" min="0.3" max="0.9" step="0.05" value="0.5"></md-slider>
+        <input type="range" id="detect-threshold" min="0.3" max="0.9" step="0.05" value="0.5" class="slider">
       </div>
-      <div class="md3-settings-row column">
-        <label for="face-threshold">Face match distance: <span id="face-threshold-val">0.5</span></label>
-        <md-slider id="face-threshold" min="0.3" max="0.7" step="0.05" value="0.5"></md-slider>
+      <div class="settings-row column">
+        <label for="face-threshold">Face match distance: <span id="face-threshold-val">0.6</span></label>
+        <input type="range" id="face-threshold" min="0.3" max="0.8" step="0.05" value="0.6" class="slider">
       </div>
-      <div class="md3-settings-row">
-        <label for="theme-switch">Dark mode</label>
-        <md-switch id="theme-switch"></md-switch>
+      <hr class="settings-divider">
+      <h3 class="settings-section-title">Object Detection Model</h3>
+      <div id="model-list" class="model-list"></div>
+      <hr class="settings-divider">
+      <div class="settings-row">
+        <button id="btn-delete-all-faces" class="btn-filled btn-error">Delete all face data</button>
       </div>
-      <md-divider></md-divider>
-      <div class="md3-settings-row">
-        <md-filled-tonal-button id="btn-delete-all-faces" style="color: var(--md-sys-color-error);">Delete all face data</md-filled-tonal-button>
+      <div class="settings-row">
+        <button id="btn-delete-all-models" class="btn-filled btn-error">Delete all downloaded models</button>
       </div>
     </div>
   </div>
 
-  <!-- Face Library Sidebar — NO display:none, hidden by transform -->
-  <aside id="sidebar" class="md3-sidebar">
-    <div class="md3-sidebar__header">
-      <h2 class="md3-sidebar__title">Face library</h2>
-      <md-icon-button id="btn-close-sidebar" aria-label="Close sidebar">
-        <md-icon>close</md-icon>
-      </md-icon-button>
-    </div>
-    <md-list id="face-list" class="md3-sidebar__list"></md-list>
-    <div id="sidebar-empty" class="md3-sidebar__empty">
-      <span class="material-symbols-outlined" style="font-size: 48px; color: var(--md-sys-color-outline);">person_add</span>
-      <p>No faces saved yet</p>
-      <p style="font-size: 0.75rem; color: var(--md-sys-color-outline);">Tap the + button to add one</p>
-    </div>
-  </aside>
+  <div id="toast-container" class="toast-container"></div>
 
-  <!-- Mobile Detection Log — bottom sheet, hidden by default -->
-  <div id="mobile-log-sheet" class="md3-mobile-log-sheet">
-    <div class="md3-mobile-log__handle" id="mobile-log-handle"></div>
-    <div class="md3-mobile-log__header">
-      <h2 class="md3-mobile-log__title">Detection Log</h2>
-      <md-icon-button id="btn-close-mobile-log" aria-label="Close log">
-        <md-icon>close</md-icon>
-      </md-icon-button>
-    </div>
-    <div id="mobile-log-list" class="md3-mobile-log__list"></div>
-    <div id="mobile-log-empty" class="md3-mobile-log__empty">
-      <span class="material-symbols-outlined">radar</span>
-      <p>No detections yet</p>
-    </div>
-  </div>
-
-  <!-- Toast Container -->
-  <div id="toast-container" class="md3-toast-container"></div>
-
-  <!-- About Page -->
   <div id="about-page" class="about-page">
     <div class="about-page__header">
       <h2 class="about-page__header-title">About</h2>
-      <md-icon-button id="btn-close-about" class="about-page__close" aria-label="Close about">
-        <md-icon>close</md-icon>
-      </md-icon-button>
+      <button id="btn-close-about" class="icon-btn" aria-label="Close about">
+        <span class="material-symbols-outlined">close</span>
+      </button>
     </div>
-    <div id="about-page-content"></div>
+    <div id="about-page-content" style="padding: 20px; line-height: 1.6;">
+      <h3 style="margin: 0 0 12px;">Mneme</h3>
+      <p style="color: var(--text-secondary); margin: 0 0 16px;">Local camera memory. Nothing leaves your device.</p>
+      <p style="color: var(--text-secondary); margin: 0 0 8px;">Object detection via COCO-SSD. Face recognition via face-api.js. All running in your browser.</p>
+      <p style="color: var(--text-secondary); margin: 0; font-size: 0.8rem;">License: Apache 2.0<br>github.com/bthavanish/Mneme</p>
+    </div>
   </div>
 
   <script type="module" src="/src/main.ts"></script>

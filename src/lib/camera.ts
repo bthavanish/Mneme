@@ -1,3 +1,11 @@
+/**
+ * Mneme - local camera memory
+ * License: Apache 2.0
+ * github.com/bthavanish/Mneme
+ *
+ * camera.ts - wraps getUserMedia, pretty straightforward
+ */
+
 let stream: MediaStream | null = null;
 
 export async function startCamera(
@@ -6,32 +14,18 @@ export async function startCamera(
 ): Promise<void> {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode,
-      },
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode },
     });
     videoEl.srcObject = stream;
     await videoEl.play();
   } catch (err: any) {
-    if (err.name === 'NotAllowedError') {
-      throw new Error('Camera access blocked. Enable it in browser settings.');
-    }
-    if (err.name === 'NotFoundError') {
-      throw new Error('No camera detected on this device.');
-    }
+    if (err.name === 'NotAllowedError') throw new Error('Camera blocked. Check browser settings.');
+    if (err.name === 'NotFoundError') throw new Error('No camera found.');
     throw err;
   }
 }
 
 export function stopCamera(): void {
-  if (stream) {
-    stream.getTracks().forEach((t) => t.stop());
-    stream = null;
-  }
-}
-
-export function getVideoDimensions(videoEl: HTMLVideoElement): { width: number; height: number } {
-  return { width: videoEl.videoWidth || 1280, height: videoEl.videoHeight || 720 };
+  stream?.getTracks().forEach(t => t.stop());
+  stream = null;
 }
